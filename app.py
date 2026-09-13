@@ -8,9 +8,12 @@ Senior Design Project
 
 import json
 import pickle
+import base64
 from pathlib import Path
 
 import numpy as np
+import streamlit as st
+from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -2365,38 +2368,786 @@ should interpret symptoms and clinical test results.
 # AUTHENTICATION, CLINICAL DASHBOARD & CHATBOT
 # =============================================================================
 
+def get_base64_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
+
 DEMO_ACCOUNTS = {
     "user@ahead.demo": {"password": "user123", "role": "User", "name": "AHEAD User"},
     "doctor@ahead.demo": {"password": "doctor123", "role": "Doctor/Admin", "name": "Dr. AHEAD"},
 }
 
+    
 def render_login():
-    st.html("""
-<div class="home-hero">
-    <div class="home-eyebrow">Secure Access Portal</div>
-    <h1>AHEAD</h1>
-    <p>Advanced Health Early Awareness and Disease Detection System</p>
-</div>
-""")
-    left, center, right = st.columns([1, 1.25, 1])
-    with center:
-        st.markdown("### Sign in")
-        st.caption("Choose the appropriate account to access AHEAD.")
-        email = st.text_input("Email", placeholder="name@example.com")
-        password = st.text_input("Password", type="password")
-        if st.button("Log In", use_container_width=True):
-            account = DEMO_ACCOUNTS.get(email.strip().lower())
-            if account and password == account["password"]:
-                st.session_state.authenticated = True
-                st.session_state.role = account["role"]
-                st.session_state.display_name = account["name"]
-                st.rerun()
-            else:
-                st.error("Incorrect email or password.")
-        with st.expander("Demo accounts"):
-            st.code("User: user@ahead.demo / user123\nDoctor: doctor@ahead.demo / doctor123")
-            st.caption("These credentials are for the university prototype only. Production deployment requires secure authentication and hashed passwords.")
 
+    
+    background_image = get_base64_image(
+        BASE / "assets" / "login_bg.png"
+    )
+
+    shield_icon = get_base64_image(
+        BASE / "assets" / "icons" / "shield-check.svg"
+    )
+
+    chart_icon = get_base64_image(
+        BASE / "assets" / "icons" / "chart-simple.svg"
+    )
+
+    users_icon = get_base64_image(
+        BASE / "assets" / "icons" / "users.svg"
+    )
+
+    # =====================================================================
+    # LOGIN PAGE STYLING
+    # =====================================================================
+
+    st.markdown(
+        f"""
+        <style>
+
+        /* ================================================================
+           HIDE DEFAULT STREAMLIT HEADER
+        ================================================================= */
+
+        [data-testid="stHeader"] {{
+            display: none !important;
+        }}
+
+        [data-testid="stToolbar"] {{
+            display: none !important;
+        }}
+
+        #MainMenu {{
+            visibility: hidden;
+        }}
+
+
+        /* ================================================================
+           FULL PAGE BACKGROUND
+        ================================================================= */
+
+        html,
+        body,
+        .stApp,
+        [data-testid="stAppViewContainer"] {{
+            background:
+                linear-gradient(
+                    rgba(241, 248, 251, 0.38),
+                    rgba(241, 248, 251, 0.38)
+                ),
+                url("data:image/png;base64,{background_image}") !important;
+
+            background-size: cover !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
+        }}
+
+        [data-testid="stAppViewContainer"] > .main {{
+            background: transparent !important;
+        }}
+
+       .block-container,
+[data-testid="stMainBlockContainer"] {{
+    max-width: 1180px !important;
+
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+
+    padding-bottom: 1rem !important;
+}}
+
+
+        /* ================================================================
+           COMPACT TOP LINKS
+        ================================================================= */
+
+        .login-topbar-compact {{
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    height: 26px;
+
+    padding: 2px 8px 4px 8px;
+
+    margin: 0 0 4px 0;
+}}
+
+        .login-links-compact {{
+            display: flex;
+
+            gap: 27px;
+
+            color: #173A5E;
+
+            font-size: 0.79rem;
+
+            font-weight: 550;
+        }}
+
+        .login-links-compact span {{
+            cursor: pointer;
+            transition: color 0.18s ease;
+        }}
+
+        .login-links-compact span:hover {{
+            color: #0E9EA5;
+        }}
+
+
+        /* ================================================================
+           MAIN LOGIN SHELL
+        ================================================================= */
+
+        .st-key-login_shell {{
+            background:
+                rgba(255,255,255,0.82) !important;
+
+            border:
+                1px solid
+                rgba(214,226,234,0.82);
+
+            border-radius: 25px;
+
+            box-shadow:
+                0 24px 65px
+                rgba(22,55,77,0.15);
+
+            overflow: hidden;
+
+            backdrop-filter: blur(9px);
+            -webkit-backdrop-filter: blur(9px);
+
+            padding: 0 !important;
+        }}
+
+        .st-key-login_shell
+        [data-testid="stHorizontalBlock"] {{
+            gap: 0 !important;
+        }}
+
+
+        /* ================================================================
+           LEFT BRAND PANEL
+        ================================================================= */
+
+        .ahead-login-brand {{
+    min-height: 500px;
+
+    padding:
+        42px
+        48px
+        28px
+        48px;
+
+            background:
+                radial-gradient(
+                    circle at bottom right,
+                    rgba(25,190,190,0.20),
+                    transparent 38%
+                ),
+                linear-gradient(
+                    145deg,
+                    #082F49 0%,
+                    #064B67 55%,
+                    #087F87 100%
+                );
+
+            color: white;
+        }}
+
+
+        /* ================================================================
+           AHEAD LOGO
+        ================================================================= */
+
+        .ahead-login-logo {{
+            display: flex;
+
+            align-items: center;
+
+            gap: 12px;
+
+            margin-bottom: 25px;
+        }}
+
+        .ahead-login-logo-icon {{
+            width: 56px;
+            height: 56px;
+
+            border-radius: 16px;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #14BFC0,
+                    #83DDD7
+                );
+
+            color: #073B52;
+
+            font-size: 27px;
+
+            font-weight: 800;
+        }}
+
+        .ahead-login-logo-text {{
+            color: white;
+
+            font-size: 2rem;
+
+            font-weight: 820;
+
+            letter-spacing: -0.04em;
+        }}
+
+
+        /* ================================================================
+           BRAND COPY
+        ================================================================= */
+
+        .ahead-login-brand h1 {{
+            color: white;
+
+            font-size: 1.85rem;
+
+            line-height: 1.3;
+
+            margin: 0 0 18px 0;
+
+            letter-spacing: -0.04em;
+        }}
+
+        .ahead-login-description {{
+            color: #D8EBEE;
+
+            font-size: 0.87rem;
+
+            line-height: 1.7;
+
+            max-width: 390px;
+
+            margin-bottom: 42px;
+        }}
+
+
+        /* ================================================================
+           FEATURES
+        ================================================================= */
+
+        .ahead-feature {{
+            display: flex;
+
+            align-items: center;
+
+            gap: 16px;
+
+            margin: 22px 0;
+        }}
+
+    .ahead-feature-icon {{
+    width: 58px;
+    height: 58px;
+
+    min-width: 58px;
+
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background:
+        rgba(44, 142, 170, 0.25);
+
+    border:
+        1px solid
+        rgba(108, 199, 217, 0.38);
+}}
+
+.feature-svg {{
+    width: 29px;
+    height: 29px;
+
+    filter:
+        brightness(0)
+        invert(1);
+
+    object-fit: contain;
+}}
+
+        .ahead-feature-title {{
+            color: #F5FBFC;
+
+            font-size: 1.1rem;
+
+            font-weight: 700;
+
+            line-height: 1.4;
+        }}
+
+
+        /* ================================================================
+           TAGLINE
+        ================================================================= */
+
+        .ahead-login-tagline {{
+            margin-top: 41px;
+
+            padding-top: 23px;
+
+            border-top:
+                1px solid
+                rgba(255,255,255,0.16);
+
+            color: #C6E4E6;
+
+            font-size: 0.80rem;
+
+            font-style: italic;
+        }}
+
+
+        /* ================================================================
+           RIGHT SIDE AREA
+        ================================================================= */
+
+        .st-key-login_form {{
+    margin: 26px 30px !important;
+
+    padding:
+        32px
+        34px
+        30px
+        34px !important;
+
+    min-height: auto !important;
+
+    width: auto !important;
+
+    box-sizing: border-box !important;
+
+    background:
+        rgba(255,255,255,0.97);
+
+    border:
+        1px solid
+        rgba(222,231,237,0.95);
+
+    border-radius: 21px;
+
+    box-shadow:
+        0 14px 38px
+        rgba(27,55,75,0.10);
+}}
+
+.st-key-login_form > div {{
+    width: 100% !important;
+    box-sizing: border-box !important;
+}}
+
+        /* ================================================================
+           HEADING
+        ================================================================= */
+
+.login-heading {{
+    margin-bottom: 4px !important;
+}}
+
+.login-heading h2 {{
+    color: #0E2E5C;
+
+    font-size: 2.7rem;
+
+    font-weight: 800;
+
+    line-height: 1.05;
+
+    letter-spacing: -0.04em;
+
+    margin: 0 0 14px 0;
+}}
+
+.login-heading p {{
+    color: #7A8CA5;
+
+    font-size: 1rem;
+
+    font-weight: 500;
+
+    margin: 0;
+}}
+
+
+
+
+        /* ================================================================
+           DEMO ACCOUNTS
+        ================================================================= */
+
+        .st-key-login_form [data-testid="stExpander"] {{
+            margin-top: 18px;
+
+            border:
+                1px solid
+                #D9E3EB !important;
+
+            border-radius:
+                9px !important;
+
+            background:
+                #F6F9FB;
+        }}
+
+
+        /* ================================================================
+           FOOTER
+        ================================================================= */
+
+        .login-footer {{
+            display: flex;
+
+            justify-content: space-between;
+
+            margin-top: 14px;
+
+            padding:
+                0
+                8px;
+
+            color: #64778A;
+
+            font-size: 0.67rem;
+        }}
+
+
+        /* ================================================================
+           RESPONSIVE
+        ================================================================= */
+
+        @media (max-width: 850px) {{
+
+            .login-links-compact {{
+                gap: 16px;
+            }}
+
+            .ahead-login-brand {{
+                min-height: auto;
+
+                padding:
+                    37px
+                    29px;
+            }}
+
+            .st-key-login_form {{
+                min-height: auto;
+
+                margin:
+                    18px;
+
+                padding:
+                    30px
+                    24px !important;
+            }}
+
+            .login-footer {{
+                flex-direction: column;
+
+                gap: 6px;
+
+                text-align: center;
+            }}
+
+        }}
+
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+    login_css = (Path(__file__).parent / "login.css").read_text()
+    st.markdown(f"<style>{login_css}</style>", unsafe_allow_html=True)
+
+    # =====================================================================
+    # COMPACT TOP LINKS
+    # =====================================================================
+
+    st.html(
+        """
+        <div class="login-topbar-compact">
+
+            <div class="login-links-compact">
+
+                <span>About</span>
+
+                <span>Contact</span>
+
+                <span>Help</span>
+
+            </div>
+
+        </div>
+        """
+    )
+
+
+    # =====================================================================
+    # MAIN LOGIN CARD
+    # =====================================================================
+
+    with st.container(
+        key="login_shell"
+    ):
+
+        left, right = st.columns(
+            [0.92, 1.08],
+            gap="small",
+        )
+
+
+        # =================================================================
+        # LEFT SIDE
+        # =================================================================
+        with left:
+
+            st.html(
+                f"""
+                <div class="ahead-login-brand">
+
+                    <div class="ahead-login-logo">
+
+                        <div class="ahead-login-logo-icon">
+                            ✚
+                        </div>
+
+                        <div class="ahead-login-logo-text">
+                            AHEAD
+                        </div>
+
+                    </div>
+
+                    <h1>
+                        Advanced Health<br>
+                        Early Awareness and<br>
+                        Disease Detection System
+                    </h1>
+
+                    <div class="ahead-login-description">
+                        AI-powered health screening designed
+                        to support earlier awareness and
+                        smarter healthcare decisions.
+                    </div>
+
+
+                    <!-- FEATURE 1 -->
+
+                    <div class="ahead-feature">
+
+                        <div class="ahead-feature-icon">
+                            <img
+                                src="data:image/svg+xml;base64,{shield_icon}"
+                                class="feature-svg"
+                            >
+                        </div>
+
+                        <div class="ahead-feature-title">
+                            Detect disease risk early
+                        </div>
+
+                    </div>
+
+
+                    <!-- FEATURE 2 -->
+
+                    <div class="ahead-feature">
+
+                        <div class="ahead-feature-icon">
+                            <img
+                                src="data:image/svg+xml;base64,{chart_icon}"
+                                class="feature-svg"
+                            >
+                        </div>
+
+                        <div class="ahead-feature-title">
+                            Get AI-powered health insights
+                        </div>
+
+                    </div>
+
+
+                    <!-- FEATURE 3 -->
+
+                    <div class="ahead-feature">
+
+                        <div class="ahead-feature-icon">
+                            <img
+                                src="data:image/svg+xml;base64,{users_icon}"
+                                class="feature-svg"
+                            >
+                        </div>
+
+                        <div class="ahead-feature-title">
+                            Support better healthcare decisions
+                        </div>
+
+                    </div>
+
+
+                    <div class="ahead-login-tagline">
+                        Early Detection. Healthier Tomorrows.
+                    </div>
+
+                </div>
+                """
+            )
+
+
+        # =================================================================
+        # RIGHT SIDE
+        # =================================================================
+
+        with right:
+
+            with st.container(key="login_form"):
+
+                st.html(
+                    """
+                    <div class="login-heading">
+                        <h2>Welcome to AHEAD</h2>
+                        <p>Sign in to continue.</p>
+                    </div>
+                    """
+                )
+
+                account_type = st.segmented_control(
+                    "Account Type",
+                    [
+                        "Patient",
+                        "Doctor / Admin",
+                    ],
+                    default="Patient",
+                    selection_mode="single",
+                    label_visibility="collapsed",
+                    key="login_account_type",
+                )
+
+                email = st.text_input(
+                    "Email",
+                    placeholder="name@example.com",
+                    key="login_email",
+                    autocomplete="off",
+                )
+
+                password = st.text_input(
+                    "Password",
+                    type="password",
+                    placeholder="Enter your password",
+                    key="login_password",
+                    autocomplete="new-password",
+                )
+
+                if st.button(
+                    "Sign In",
+                    use_container_width=True,
+                    key="login_button",
+                ):
+
+                    account = DEMO_ACCOUNTS.get(
+                        email.strip().lower()
+                    )
+
+                    if (
+                        account
+                        and password == account["password"]
+                    ):
+
+                        correct_type = (
+                            (
+                                account_type == "Patient"
+                                and account["role"] == "User"
+                            )
+                            or
+                            (
+                                account_type == "Doctor / Admin"
+                                and account["role"] == "Doctor/Admin"
+                            )
+                        )
+
+                        if correct_type:
+
+                            st.session_state.authenticated = True
+                            st.session_state.role = account["role"]
+                            st.session_state.display_name = account["name"]
+
+                            st.rerun()
+
+                        else:
+
+                            st.error(
+                                "The selected account type "
+                                "does not match these credentials."
+                            )
+
+                    else:
+
+                        st.error(
+                            "Incorrect email or password."
+                        )
+
+                with st.expander(
+                    "Demo accounts"
+                ):
+
+                    st.markdown(
+                        """
+**Patient**
+
+`user@ahead.demo`
+
+Password: `user123`
+
+---
+
+**Doctor / Admin**
+
+`doctor@ahead.demo`
+
+Password: `doctor123`
+"""
+                    )
+
+
+    # =====================================================================
+    # FOOTER
+    # =====================================================================
+
+    st.html(
+        """
+        <div class="login-footer">
+
+            <span>
+                © AHEAD · Senior Design Project
+            </span>
+
+            <span>
+                Privacy &nbsp; | &nbsp;
+                Terms &nbsp; | &nbsp;
+                Accessibility
+            </span>
+
+        </div>
+        """
+    )
+    
 def read_patient_file(uploaded_file):
     suffix = Path(uploaded_file.name).suffix.lower()
     if suffix == ".csv":
