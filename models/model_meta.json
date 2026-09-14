@@ -1,0 +1,491 @@
+{
+  "diabetes": {
+    "features": [
+      "gender",
+      "age",
+      "hypertension",
+      "heart_disease",
+      "smoking_history",
+      "bmi",
+      "HbA1c_level",
+      "blood_glucose_level"
+    ],
+    "target": "diabetes",
+    "n_samples": 100000,
+    "positive_cases": 8500,
+    "negative_cases": 91500,
+    "numeric_features": [
+      "age",
+      "hypertension",
+      "heart_disease",
+      "bmi",
+      "HbA1c_level",
+      "blood_glucose_level"
+    ],
+    "categorical_features": [
+      "gender",
+      "smoking_history"
+    ],
+    "best_model": "GradientBoosting",
+    "selection_metric": "macro_f1",
+    "best_validation_score": 0.8946,
+    "decision_threshold": 0.5,
+    "validation_model_results": [
+      {
+        "accuracy": 0.9145,
+        "precision_disease": 0.4984,
+        "recall_disease": 0.8919,
+        "f1_disease": 0.6394,
+        "f1_no_disease": 0.9515,
+        "macro_f1": 0.7955,
+        "f2_disease": 0.7703,
+        "roc_auc": 0.9766,
+        "model": "RandomForest"
+      },
+      {
+        "accuracy": 0.8875,
+        "precision_disease": 0.4219,
+        "recall_disease": 0.8743,
+        "f1_disease": 0.5692,
+        "f1_no_disease": 0.9353,
+        "macro_f1": 0.7522,
+        "f2_disease": 0.7199,
+        "roc_auc": 0.9608,
+        "model": "LogisticRegression"
+      },
+      {
+        "accuracy": 0.9718,
+        "precision_disease": 0.981,
+        "recall_disease": 0.6816,
+        "f1_disease": 0.8043,
+        "f1_no_disease": 0.9848,
+        "macro_f1": 0.8946,
+        "f2_disease": 0.7259,
+        "roc_auc": 0.9789,
+        "model": "GradientBoosting"
+      },
+      {
+        "accuracy": 0.8943,
+        "precision_disease": 0.4401,
+        "recall_disease": 0.8941,
+        "f1_disease": 0.5899,
+        "f1_no_disease": 0.9393,
+        "macro_f1": 0.7646,
+        "f2_disease": 0.7412,
+        "roc_auc": 0.9599,
+        "model": "SVM"
+      },
+      {
+        "accuracy": 0.9538,
+        "precision_disease": 0.7245,
+        "recall_disease": 0.7368,
+        "f1_disease": 0.7306,
+        "f1_no_disease": 0.9747,
+        "macro_f1": 0.8527,
+        "f2_disease": 0.7343,
+        "roc_auc": 0.8556,
+        "model": "DecisionTree"
+      },
+      {
+        "accuracy": 0.9434,
+        "precision_disease": 0.6371,
+        "recall_disease": 0.7757,
+        "f1_disease": 0.6996,
+        "f1_no_disease": 0.9687,
+        "macro_f1": 0.8342,
+        "f2_disease": 0.7434,
+        "roc_auc": 0.9706,
+        "model": "XGBoost"
+      }
+    ],
+    "threshold_results": null,
+    "final_test_metrics": {
+      "accuracy": 0.9723,
+      "precision_disease": 0.9775,
+      "recall_disease": 0.69,
+      "f1_disease": 0.809,
+      "f1_no_disease": 0.9851,
+      "macro_f1": 0.897,
+      "f2_disease": 0.7331,
+      "roc_auc": 0.9794
+    }
+  },
+  "heart": {
+    "features": [
+      "Sex",
+      "GeneralHealth",
+      "PhysicalHealthDays",
+      "MentalHealthDays",
+      "PhysicalActivities",
+      "SleepHours",
+      "HadStroke",
+      "HadAsthma",
+      "HadKidneyDisease",
+      "HadArthritis",
+      "HadDiabetes",
+      "SmokerStatus",
+      "AgeCategory",
+      "BMI",
+      "AlcoholDrinkers"
+    ],
+    "target": "HadHeartAttack",
+    "n_samples": 246022,
+    "positive_cases": 13435,
+    "negative_cases": 232587,
+    "numeric_features": [
+      "PhysicalHealthDays",
+      "MentalHealthDays",
+      "SleepHours",
+      "BMI"
+    ],
+    "categorical_features": [
+      "Sex",
+      "GeneralHealth",
+      "PhysicalActivities",
+      "HadStroke",
+      "HadAsthma",
+      "HadKidneyDisease",
+      "HadArthritis",
+      "HadDiabetes",
+      "SmokerStatus",
+      "AgeCategory",
+      "AlcoholDrinkers"
+    ],
+    "best_model": "LogisticRegression",
+    "selection_metric": "f2_disease",
+    "best_validation_score": 0.4138,
+    "decision_threshold": 0.6,
+    "validation_model_results": [
+      {
+        "accuracy": 0.7654,
+        "precision_disease": 0.1514,
+        "recall_disease": 0.7158,
+        "f1_disease": 0.25,
+        "f1_no_disease": 0.861,
+        "macro_f1": 0.5555,
+        "f2_disease": 0.4101,
+        "roc_auc": 0.8245,
+        "model": "RandomForest"
+      },
+      {
+        "accuracy": 0.7415,
+        "precision_disease": 0.1456,
+        "recall_disease": 0.767,
+        "f1_disease": 0.2448,
+        "f1_no_disease": 0.8441,
+        "macro_f1": 0.5444,
+        "f2_disease": 0.4138,
+        "roc_auc": 0.8341,
+        "model": "LogisticRegression"
+      },
+      {
+        "accuracy": 0.9459,
+        "precision_disease": 0.5621,
+        "recall_disease": 0.04,
+        "f1_disease": 0.0747,
+        "f1_no_disease": 0.9721,
+        "macro_f1": 0.5234,
+        "f2_disease": 0.0491,
+        "roc_auc": 0.8345,
+        "model": "GradientBoosting"
+      },
+      {
+        "accuracy": 0.7785,
+        "precision_disease": 0.1444,
+        "recall_disease": 0.6205,
+        "f1_disease": 0.2343,
+        "f1_no_disease": 0.8705,
+        "macro_f1": 0.5524,
+        "f2_disease": 0.3739,
+        "roc_auc": 0.7874,
+        "model": "SVM"
+      },
+      {
+        "accuracy": 0.9072,
+        "precision_disease": 0.1491,
+        "recall_disease": 0.1484,
+        "f1_disease": 0.1487,
+        "f1_no_disease": 0.9509,
+        "macro_f1": 0.5498,
+        "f2_disease": 0.1485,
+        "roc_auc": 0.5498,
+        "model": "DecisionTree"
+      },
+      {
+        "accuracy": 0.8066,
+        "precision_disease": 0.1551,
+        "recall_disease": 0.5712,
+        "f1_disease": 0.2439,
+        "f1_no_disease": 0.8891,
+        "macro_f1": 0.5665,
+        "f2_disease": 0.3717,
+        "roc_auc": 0.7885,
+        "model": "XGBoost"
+      }
+    ],
+    "threshold_results": [
+      {
+        "threshold": 0.05,
+        "precision": 0.0602,
+        "recall": 0.9963,
+        "f2": 0.2425
+      },
+      {
+        "threshold": 0.1,
+        "precision": 0.0686,
+        "recall": 0.9902,
+        "f2": 0.2685
+      },
+      {
+        "threshold": 0.15,
+        "precision": 0.0762,
+        "recall": 0.9781,
+        "f2": 0.2906
+      },
+      {
+        "threshold": 0.2,
+        "precision": 0.0846,
+        "recall": 0.967,
+        "f2": 0.3133
+      },
+      {
+        "threshold": 0.25,
+        "precision": 0.0935,
+        "recall": 0.9521,
+        "f2": 0.3355
+      },
+      {
+        "threshold": 0.3,
+        "precision": 0.1029,
+        "recall": 0.9316,
+        "f2": 0.3568
+      },
+      {
+        "threshold": 0.35,
+        "precision": 0.1123,
+        "recall": 0.8981,
+        "f2": 0.3743
+      },
+      {
+        "threshold": 0.4,
+        "precision": 0.1229,
+        "recall": 0.8619,
+        "f2": 0.3913
+      },
+      {
+        "threshold": 0.45,
+        "precision": 0.1329,
+        "recall": 0.813,
+        "f2": 0.4019
+      },
+      {
+        "threshold": 0.5,
+        "precision": 0.1456,
+        "recall": 0.767,
+        "f2": 0.4138
+      },
+      {
+        "threshold": 0.55,
+        "precision": 0.1594,
+        "recall": 0.7093,
+        "f2": 0.4197
+      },
+      {
+        "threshold": 0.6,
+        "precision": 0.1752,
+        "recall": 0.6479,
+        "f2": 0.4208
+      },
+      {
+        "threshold": 0.65,
+        "precision": 0.1924,
+        "recall": 0.5856,
+        "f2": 0.4157
+      },
+      {
+        "threshold": 0.7,
+        "precision": 0.2125,
+        "recall": 0.5098,
+        "f2": 0.3983
+      },
+      {
+        "threshold": 0.75,
+        "precision": 0.239,
+        "recall": 0.4358,
+        "f2": 0.3742
+      },
+      {
+        "threshold": 0.8,
+        "precision": 0.2747,
+        "recall": 0.3498,
+        "f2": 0.3316
+      },
+      {
+        "threshold": 0.85,
+        "precision": 0.328,
+        "recall": 0.2595,
+        "f2": 0.2708
+      },
+      {
+        "threshold": 0.9,
+        "precision": 0.4028,
+        "recall": 0.1581,
+        "f2": 0.18
+      },
+      {
+        "threshold": 0.95,
+        "precision": 0.5114,
+        "recall": 0.0521,
+        "f2": 0.0635
+      }
+    ],
+    "final_test_metrics": {
+      "accuracy": 0.8117,
+      "precision_disease": 0.1711,
+      "recall_disease": 0.6368,
+      "f1_disease": 0.2697,
+      "f1_no_disease": 0.8919,
+      "macro_f1": 0.5808,
+      "f2_disease": 0.4123,
+      "roc_auc": 0.8279
+    }
+  },
+  "kidney": {
+    "features": [
+      "Age",
+      "Gender",
+      "BMI",
+      "Smoking",
+      "AlcoholConsumption",
+      "PhysicalActivity",
+      "DietQuality",
+      "SleepQuality",
+      "FamilyHistoryKidneyDisease",
+      "FamilyHistoryHypertension",
+      "FamilyHistoryDiabetes",
+      "SystolicBP",
+      "DiastolicBP",
+      "FastingBloodSugar",
+      "HbA1c",
+      "SerumCreatinine",
+      "BUNLevels",
+      "GFR",
+      "ProteinInUrine",
+      "ACR",
+      "HemoglobinLevels",
+      "Edema"
+    ],
+    "target": "Diagnosis",
+    "n_samples": 1659,
+    "positive_cases": 1524,
+    "negative_cases": 135,
+    "numeric_features": [
+      "Age",
+      "Gender",
+      "BMI",
+      "Smoking",
+      "AlcoholConsumption",
+      "PhysicalActivity",
+      "DietQuality",
+      "SleepQuality",
+      "FamilyHistoryKidneyDisease",
+      "FamilyHistoryHypertension",
+      "FamilyHistoryDiabetes",
+      "SystolicBP",
+      "DiastolicBP",
+      "FastingBloodSugar",
+      "HbA1c",
+      "SerumCreatinine",
+      "BUNLevels",
+      "GFR",
+      "ProteinInUrine",
+      "ACR",
+      "HemoglobinLevels",
+      "Edema"
+    ],
+    "categorical_features": [],
+    "best_model": "XGBoost",
+    "selection_metric": "macro_f1",
+    "best_validation_score": 0.6756,
+    "decision_threshold": 0.5,
+    "validation_model_results": [
+      {
+        "accuracy": 0.9173,
+        "precision_disease": 0.9302,
+        "recall_disease": 0.9836,
+        "f1_disease": 0.9562,
+        "f1_no_disease": 0.2667,
+        "macro_f1": 0.6114,
+        "f2_disease": 0.9724,
+        "roc_auc": 0.843,
+        "model": "RandomForest"
+      },
+      {
+        "accuracy": 0.7782,
+        "precision_disease": 0.9744,
+        "recall_disease": 0.7787,
+        "f1_disease": 0.8656,
+        "f1_no_disease": 0.3656,
+        "macro_f1": 0.6156,
+        "f2_disease": 0.8113,
+        "roc_auc": 0.8765,
+        "model": "LogisticRegression"
+      },
+      {
+        "accuracy": 0.9248,
+        "precision_disease": 0.9375,
+        "recall_disease": 0.9836,
+        "f1_disease": 0.96,
+        "f1_no_disease": 0.375,
+        "macro_f1": 0.6675,
+        "f2_disease": 0.974,
+        "roc_auc": 0.8159,
+        "model": "GradientBoosting"
+      },
+      {
+        "accuracy": 0.8947,
+        "precision_disease": 0.9426,
+        "recall_disease": 0.9426,
+        "f1_disease": 0.9426,
+        "f1_no_disease": 0.3636,
+        "macro_f1": 0.6531,
+        "f2_disease": 0.9426,
+        "roc_auc": 0.8633,
+        "model": "SVM"
+      },
+      {
+        "accuracy": 0.8722,
+        "precision_disease": 0.9303,
+        "recall_disease": 0.9303,
+        "f1_disease": 0.9303,
+        "f1_no_disease": 0.2273,
+        "macro_f1": 0.5788,
+        "f2_disease": 0.9303,
+        "roc_auc": 0.5788,
+        "model": "DecisionTree"
+      },
+      {
+        "accuracy": 0.9098,
+        "precision_disease": 0.9435,
+        "recall_disease": 0.959,
+        "f1_disease": 0.9512,
+        "f1_no_disease": 0.4,
+        "macro_f1": 0.6756,
+        "f2_disease": 0.9559,
+        "roc_auc": 0.8048,
+        "model": "XGBoost"
+      }
+    ],
+    "threshold_results": null,
+    "final_test_metrics": {
+      "accuracy": 0.9157,
+      "precision_disease": 0.9453,
+      "recall_disease": 0.9639,
+      "f1_disease": 0.9545,
+      "f1_no_disease": 0.4167,
+      "macro_f1": 0.6856,
+      "f2_disease": 0.9602,
+      "roc_auc": 0.8046
+    }
+  }
+}
