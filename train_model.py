@@ -78,6 +78,8 @@ DATA_DIR = BASE / "data"
 MODELS_DIR = BASE / "models"
 
 MODELS_DIR.mkdir(exist_ok=True)
+ALL_MODELS_DIR = MODELS_DIR / "all_models"
+ALL_MODELS_DIR.mkdir(exist_ok=True)
 
 
 # =============================================================================
@@ -664,6 +666,12 @@ def train_and_benchmark(
             X_fit,
             y_fit,
         )
+
+        # Save every benchmark pipeline so the app can let users/doctors compare models.
+        model_file_name = name.lower().replace(" ", "_")
+        candidate_path = ALL_MODELS_DIR / f"{model_name}_{model_file_name}.pkl"
+        with open(candidate_path, "wb") as candidate_file:
+            pickle.dump(pipeline, candidate_file)
 
         y_pred_val = (
             pipeline.predict(

@@ -18,7 +18,7 @@ import streamlit as st
 from google import genai
 
 
-client = genai.Client()
+client = None  # Gemini is initialized only when an AI feature is used.
 
 
 # =============================================================================
@@ -766,6 +766,30 @@ def load_model(name):
     ) as file:
 
         return pickle.load(file)
+
+
+@st.cache_resource
+def load_named_model(disease, model_name):
+    """Load a benchmark model saved by train_model.py; fall back to the recommended model."""
+    safe_name = model_name.lower().replace(" ", "_")
+    path = MODELS_DIR / "all_models" / f"{disease}_{safe_name}.pkl"
+    if path.exists():
+        with open(path, "rb") as file:
+            return pickle.load(file)
+    if model_name == meta[disease]["best_model"]:
+        return MODELS[disease]
+    return None
+
+def available_models(disease):
+    return [row["model"] for row in meta[disease].get("validation_model_results", [])]
+
+def model_reason(disease):
+    reasons = {
+        "diabetes": "Gradient Boosting is recommended because it achieved the strongest validation macro-F1 score for the diabetes dataset.",
+        "heart": "Logistic Regression is recommended because AHEAD prioritizes sensitivity in cardiovascular screening and selected the model using the F2 score, which gives more weight to recall.",
+        "kidney": "XGBoost is recommended because it achieved the strongest validation macro-F1 score for the kidney dataset.",
+    }
+    return reasons[disease]
 
 
 @st.cache_data
@@ -1814,7 +1838,8 @@ Requirements:
 - Keep the answer brief enough to read comfortably inside a screening application.
 """
 
-    response = client.models.generate_content(
+    gemini_client = genai.Client()
+    response = gemini_client.models.generate_content(
         model="gemini-3.5-flash-lite",
         contents=prompt,
     )
@@ -1867,9 +1892,30 @@ def render_predictor(
     disease_label,
 ):
 
-    model = MODELS[
-        disease
-    ]
+    recommended_model = meta[disease]["best_model"]
+    choices = available_models(disease)
+    if recommended_model in choices:
+        choices = [recommended_model] + [name for name in choices if name != recommended_model]
+
+    st.markdown("#### Prediction Model")
+    selected_model_name = st.selectbox(
+        "Choose the machine-learning model",
+        choices,
+        format_func=lambda name: f"{name} — Recommended" if name == recommended_model else name,
+        key=f"{disease}_model_selector",
+    )
+    model = load_named_model(disease, selected_model_name)
+    if model is None:
+        st.warning(
+            f"{selected_model_name} has not been saved yet. Run `python train_model.py` once after this upgrade. "
+            f"AHEAD is using {recommended_model} for now."
+        )
+        selected_model_name = recommended_model
+        model = MODELS[disease]
+
+    with st.expander("Why does AHEAD recommend this model?"):
+        st.write(model_reason(disease))
+        st.caption("Alternative models are available for comparison and research. The recommended model remains the default.")
 
     dataset = load_dataset(
         disease
@@ -1884,8 +1930,10 @@ def render_predictor(
     # Important:
     # threshold remains active internally, but is intentionally
     # not displayed in the patient-facing interface.
-    threshold = decision_threshold(
-        disease
+    threshold = (
+        decision_threshold(disease)
+        if selected_model_name == recommended_model
+        else 0.5
     )
 
     # -------------------------------------------------------------------------
@@ -2314,6 +2362,150 @@ should interpret symptoms and clinical test results.
 
 
 # =============================================================================
+# AUTHENTICATION, CLINICAL DASHBOARD & CHATBOT
+# =============================================================================
+
+DEMO_ACCOUNTS = {
+    "user@ahead.demo": {"password": "user123", "role": "User", "name": "AHEAD User"},
+    "doctor@ahead.demo": {"password": "doctor123", "role": "Doctor/Admin", "name": "Dr. AHEAD"},
+}
+
+def render_login():
+    st.html("""
+<div class="home-hero">
+    <div class="home-eyebrow">Secure Access Portal</div>
+    <h1>AHEAD</h1>
+    <p>Advanced Health Early Awareness and Disease Detection System</p>
+</div>
+""")
+    left, center, right = st.columns([1, 1.25, 1])
+    with center:
+        st.markdown("### Sign in")
+        st.caption("Choose the appropriate account to access AHEAD.")
+        email = st.text_input("Email", placeholder="name@example.com")
+        password = st.text_input("Password", type="password")
+        if st.button("Log In", use_container_width=True):
+            account = DEMO_ACCOUNTS.get(email.strip().lower())
+            if account and password == account["password"]:
+                st.session_state.authenticated = True
+                st.session_state.role = account["role"]
+                st.session_state.display_name = account["name"]
+                st.rerun()
+            else:
+                st.error("Incorrect email or password.")
+        with st.expander("Demo accounts"):
+            st.code("User: user@ahead.demo / user123\nDoctor: doctor@ahead.demo / doctor123")
+            st.caption("These credentials are for the university prototype only. Production deployment requires secure authentication and hashed passwords.")
+
+def read_patient_file(uploaded_file):
+    suffix = Path(uploaded_file.name).suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(uploaded_file)
+    return pd.read_excel(uploaded_file)
+
+def render_clinical_dashboard():
+    st.html("""
+<div class="clinical-header">
+    <div class="header-eyebrow">Hospital Clinical Decision Support</div>
+    <h1>Clinical Dashboard</h1>
+    <p>Upload a disease-specific patient file, select one record and generate an AHEAD model screening result for clinical review.</p>
+</div>
+""")
+    st.warning("AHEAD is a research and educational decision-support prototype. Its output is not a confirmed diagnosis and must be interpreted by a qualified clinician.")
+    disease_labels = {"diabetes":"Diabetes", "heart":"Cardiovascular Disease", "kidney":"Chronic Kidney Disease"}
+    disease = st.selectbox("Disease screening", list(disease_labels), format_func=lambda x: disease_labels[x])
+    recommended = meta[disease]["best_model"]
+    choices = available_models(disease)
+    if recommended in choices:
+        choices = [recommended] + [x for x in choices if x != recommended]
+    selected_name = st.selectbox("Prediction model", choices, format_func=lambda x: f"{x} — Recommended" if x == recommended else x, key="admin_model")
+    with st.expander("Why is this model recommended?"):
+        st.write(model_reason(disease))
+    uploaded = st.file_uploader("Upload patient records", type=["csv", "xlsx", "xls"], help="Upload one disease-specific file. Each row represents one patient record.")
+    if uploaded is None:
+        st.info("Upload a CSV or Excel file to begin.")
+        return
+    try:
+        patient_df = read_patient_file(uploaded)
+    except Exception as error:
+        st.error(f"AHEAD could not read this file: {error}")
+        return
+    required = meta[disease]["features"]
+    missing = [col for col in required if col not in patient_df.columns]
+    if missing:
+        st.error("The uploaded file is missing required columns: " + ", ".join(missing))
+        st.caption("Required columns: " + ", ".join(required))
+        return
+    st.success(f"File loaded successfully — {len(patient_df):,} patient records found.")
+    preview_cols = [c for c in ["PatientID", "patient_id", "ID", "id"] if c in patient_df.columns]
+    preview_cols += [c for c in required if c not in preview_cols][:6]
+    st.dataframe(patient_df[preview_cols], use_container_width=True, height=300)
+    labels = []
+    id_col = preview_cols[0] if preview_cols and preview_cols[0] not in required else None
+    for i in range(len(patient_df)):
+        labels.append(f"Row {i + 1}" + (f" — {patient_df.iloc[i][id_col]}" if id_col else ""))
+    selected_label = st.selectbox("Select patient record", labels)
+    row_index = labels.index(selected_label)
+    selected = patient_df.iloc[[row_index]][required].copy()
+    with st.expander("Selected patient information"):
+        summary = selected.T.rename(columns={selected.index[0]: "Value"})
+        summary.index = [pretty_label(x) for x in summary.index]
+        st.dataframe(summary, use_container_width=True)
+    if st.button("Run Clinical Screening", use_container_width=True):
+        model = load_named_model(disease, selected_name)
+        if model is None:
+            st.error(f"The saved {selected_name} pipeline is not available yet. Run `python train_model.py` after installing the upgraded files.")
+            return
+        threshold = decision_threshold(disease) if selected_name == recommended else 0.5
+        probability = float(model.predict_proba(selected)[0][1])
+        prediction = int(probability >= threshold)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Selected model", selected_name)
+        c2.metric("Model score", f"{probability*100:.1f}%")
+        c3.metric("Screening classification", "Flagged for review" if prediction else "Not flagged")
+        render_result_card(prediction, probability, disease_labels[disease])
+        st.caption("The model score is an algorithmic screening output, not the patient's true probability of disease and not a confirmed diagnosis.")
+
+def generate_chat_reply(message):
+    prompt = f"""You are AHEAD Assistant inside a university healthcare screening prototype. Answer questions about AHEAD, diabetes, cardiovascular disease, chronic kidney disease, common screening measurements, and how to use the website. Give general educational information only. Do not diagnose a person, do not claim a screening result confirms disease, and do not recommend starting/stopping/changing prescription medication. For urgent symptoms advise appropriate urgent medical care. Keep answers concise and patient-friendly.\n\nUser question: {message}"""
+    gemini_client = genai.Client()
+    response = gemini_client.models.generate_content(model="gemini-3.5-flash-lite", contents=prompt)
+    return response.text
+
+def render_chatbot():
+    st.html("""
+<div class="clinical-header">
+    <div class="header-eyebrow">AHEAD Assistant</div>
+    <h1>Ask AHEAD</h1>
+    <p>Ask general questions about the three conditions, screening measurements, model results, or how to use AHEAD.</p>
+</div>
+""")
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = [{"role":"assistant", "content":"Hi! I’m AHEAD Assistant. What would you like to know about AHEAD or its screening conditions?"}]
+    for item in st.session_state.chat_messages:
+        with st.chat_message(item["role"]):
+            st.markdown(item["content"])
+    message = st.chat_input("Ask AHEAD a question...")
+    if message:
+        st.session_state.chat_messages.append({"role":"user", "content":message})
+        with st.chat_message("user"):
+            st.markdown(message)
+        with st.chat_message("assistant"):
+            try:
+                answer = generate_chat_reply(message)
+            except Exception:
+                answer = "AHEAD Assistant is temporarily unavailable. The screening tools can still be used normally."
+            st.markdown(answer)
+        st.session_state.chat_messages.append({"role":"assistant", "content":answer})
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    render_login()
+    st.stop()
+
+# =============================================================================
 # SIDEBAR
 # =============================================================================
 
@@ -2342,19 +2534,34 @@ with st.sidebar:
 
     st.divider()
 
-    page = st.radio(
+    st.caption(f"SIGNED IN AS · {st.session_state.get('role', 'User')}")
+    st.markdown(f"**{st.session_state.get('display_name', 'AHEAD User')}**")
 
-        "Navigation",
-
-        [
+    if st.session_state.get("role") == "Doctor/Admin":
+        nav_options = [
+            "Clinical Dashboard",
             "Overview",
             "Diabetes Screening",
             "Cardiovascular Screening",
             "Kidney Health Screening",
+            "AHEAD Assistant",
             "Data & Analytics",
             "About AHEAD",
-        ],
+        ]
+    else:
+        nav_options = [
+            "Overview",
+            "Diabetes Screening",
+            "Cardiovascular Screening",
+            "Kidney Health Screening",
+            "AHEAD Assistant",
+            "Data & Analytics",
+            "About AHEAD",
+        ]
 
+    page = st.radio(
+        "Navigation",
+        nav_options,
         label_visibility="collapsed",
     )
 
@@ -2369,12 +2576,25 @@ with st.sidebar:
         "and kidney health."
     )
 
+    st.divider()
+    if st.button("Log Out", use_container_width=True):
+        st.session_state.authenticated = False
+        st.session_state.pop("role", None)
+        st.session_state.pop("display_name", None)
+        st.rerun()
+
 
 # =============================================================================
 # OVERVIEW
 # =============================================================================
 
-if page == "Overview":
+if page == "Clinical Dashboard":
+    render_clinical_dashboard()
+
+elif page == "AHEAD Assistant":
+    render_chatbot()
+
+elif page == "Overview":
 
     diabetes_df = load_dataset(
         "diabetes"
@@ -2688,6 +2908,25 @@ replace professional medical evaluation.
 # =============================================================================
 # SCREENING PAGES
 # =============================================================================
+
+
+    st.html("""
+<div class="section-heading">
+    <h2>User Experiences</h2>
+    <p>Sample testimonials for the AHEAD prototype. Replace these with approved feedback collected from real users.</p>
+</div>
+""")
+    t1, t2, t3 = st.columns(3)
+    samples = [
+        ("Easy to understand", "The screening flow made the information much easier to follow."),
+        ("Clear health information", "I liked seeing the result together with the factors and questions to discuss with a professional."),
+        ("Simple and organized", "The three screening services were straightforward to navigate."),
+    ]
+    for col, (heading, quote) in zip([t1, t2, t3], samples):
+        with col:
+            st.markdown(f"**{heading}**")
+            st.caption(quote)
+            st.caption("Sample testimonial - Demo only")
 
 elif page == "Diabetes Screening":
 
