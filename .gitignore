@@ -1,4 +1,17 @@
+# environments & secrets
 .venv/
-.DS_Store
+venv/
 .env
 .streamlit/secrets.toml
+
+# python
+__pycache__/
+*.pyc
+
+# editor / OS / local tooling
+.DS_Store
+.claude/
+
+# local scratch copies
+*.backup*
+*.bak

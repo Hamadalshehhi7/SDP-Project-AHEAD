@@ -1,0 +1,160 @@
+"""
+ahead/pages/analytics.py
+========================
+Dataset explorer and technical model performance per condition.
+"""
+
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
+
+from ahead.components import page_header, section_heading
+from ahead.config import DISEASES, pretty_label
+from ahead.resources import best_model, features, final_metrics, load_dataset, meta, validation_results
+from ahead.theme import show_chart, style_figure, tokens
+
+METRIC_COLUMNS = {
+    "model": "Algorithm",
+    "accuracy": "Accuracy",
+    "precision_disease": "Disease Precision",
+    "recall_disease": "Disease Recall",
+    "f1_disease": "Disease F1",
+    "macro_f1": "Macro F1",
+    "f2_disease": "Disease F2",
+    "roc_auc": "ROC-AUC",
+}
+
+
+def _target_figure(dataset: pd.DataFrame, target: str, title: str) -> go.Figure:
+    counts = dataset[target].astype(str).value_counts().reset_index()
+    counts.columns = ["Class", "Count"]
+    figure = px.bar(counts, x="Class", y="Count", title=f"{title} — Target Distribution", text_auto=".3s")
+    figure.update_traces(marker_color=tokens()["accent"])
+    style_figure(figure, height=330)
+    return figure
+
+
+@st.cache_data(show_spinner=False)
+def _feature_distribution(disease: str, feature: str) -> pd.DataFrame:
+    """Binned counts for a feature — computed once, so the browser never receives raw rows."""
+    series = load_dataset(disease)[feature].dropna()
+    if pd.api.types.is_numeric_dtype(series) and series.nunique() > 10:
+        counts, edges = np.histogram(series, bins=35)
+        centres = (edges[:-1] + edges[1:]) / 2
+        return pd.DataFrame({"Value": centres, "Count": counts, "width": np.diff(edges)})
+    counts = series.astype(str).value_counts().head(20).reset_index()
+    counts.columns = ["Value", "Count"]
+    return counts
+
+
+def _feature_figure(disease: str, feature: str) -> go.Figure:
+    frame = _feature_distribution(disease, feature)
+    title = f"{pretty_label(feature)} Distribution"
+    if "width" in frame.columns:
+        figure = go.Figure(go.Bar(x=frame["Value"], y=frame["Count"], width=frame["width"], marker_color="#5B8FA3"))
+        figure.update_layout(title=title, bargap=0.05)
+    else:
+        figure = px.bar(frame, x="Value", y="Count", title=title)
+        figure.update_traces(marker_color="#5B8FA3")
+    style_figure(figure, height=330)
+    figure.update_layout(xaxis_title="", yaxis_title="")
+    return figure
+
+
+def _threshold_figure(rows: list, chosen: float) -> go.Figure:
+    frame = pd.DataFrame(rows)
+    t = tokens()
+    figure = go.Figure()
+    figure.add_trace(go.Scatter(x=frame["threshold"], y=frame["recall"], name="Recall", line=dict(color=t["accent"], width=3)))
+    figure.add_trace(go.Scatter(x=frame["threshold"], y=frame["precision"], name="Precision", line=dict(color="#5B8FA3", width=3)))
+    figure.add_trace(go.Scatter(x=frame["threshold"], y=frame["f2"], name="F2", line=dict(color=t["warning"], width=3, dash="dot")))
+    figure.add_vline(x=chosen, line=dict(color=t["danger"], width=2, dash="dash"),
+                     annotation_text=f"chosen {chosen:.2f}", annotation_position="top left")
+    style_figure(figure, height=320, legend=True)
+    figure.update_layout(title="Validation threshold sweep (recommended model)", xaxis_title="Probability threshold", yaxis_title="Score")
+    return figure
+
+
+def _model_comparison(disease: str) -> None:
+    rows = validation_results(disease)
+    if not rows:
+        return
+    section_heading(
+        "Algorithm Comparison",
+        "Validation-set performance of every model family at the default 0.5 cut-off (the tuned threshold "
+        "above applies only to the recommended model's final test metrics).",
+    )
+    frame = pd.DataFrame(rows)
+    columns = [c for c in METRIC_COLUMNS if c in frame.columns]
+    frame = frame[columns].rename(columns=METRIC_COLUMNS)
+    recommended = best_model(disease)
+    frame.insert(0, "Recommended", frame["Algorithm"].map(lambda name: "★" if name == recommended else ""))
+    numeric = [c for c in frame.columns if c not in {"Algorithm", "Recommended"}]
+    frame[numeric] = frame[numeric].astype(float).round(4)
+    st.dataframe(frame, width="stretch", hide_index=True)
+    metric = meta(disease).get("selection_metric", "macro_f1")
+    label = METRIC_COLUMNS.get(metric, metric)
+    ranked = frame.sort_values(label, ascending=True)
+    chart = px.bar(ranked, x=label, y="Algorithm", orientation="h", title=f"Selection metric — {label}")
+    chart.update_traces(marker_color=[tokens()["accent"] if n == recommended else "#9DB6C6" for n in ranked["Algorithm"]])
+    style_figure(chart, height=300)
+    chart.update_layout(yaxis_title="")
+    show_chart(chart)
+
+
+def render_analytics() -> None:
+    page_header(
+        "AHEAD Analytics", "Data & Model Explorer",
+        "Explore the datasets and review the technical performance of each recommended model.",
+    )
+
+    tabs = st.tabs([info["label"] for info in DISEASES.values()])
+    for tab, (disease, info) in zip(tabs, DISEASES.items()):
+        with tab:
+            dataset = load_dataset(disease)
+            target = info["target"]
+            model_features = features(disease)
+            details = meta(disease)
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Records", f"{len(dataset):,}")
+            c2.metric("Positive cases", f"{details.get('positive_cases', 0):,}",
+                      f"{100 * details.get('positive_cases', 0) / max(details.get('n_samples', 1), 1):.1f}% of records",
+                      delta_color="off")
+            c3.metric("Model features", len(model_features))
+            c4.metric("Recommended model", best_model(disease))
+
+            left, right = st.columns(2)
+            with left:
+                show_chart(_target_figure(dataset, target, info["label"]))
+            with right:
+                selected_feature = st.selectbox(
+                    "Feature to explore", model_features, format_func=pretty_label, key=f"explorer_{disease}",
+                )
+                show_chart(_feature_figure(disease, selected_feature))
+
+            # ------------------------------------------------------------ final test metrics
+            section_heading("Final Model Performance", "Measured once on the untouched test set with the recommended model.")
+            metrics = final_metrics(disease)
+            m1, m2, m3, m4, m5 = st.columns(5)
+            m1.metric("Accuracy", f"{metrics.get('accuracy', 0) * 100:.2f}%")
+            m2.metric("Disease recall", f"{metrics.get('recall_disease', 0) * 100:.2f}%")
+            m3.metric("Disease F1", f"{metrics.get('f1_disease', 0):.4f}")
+            m4.metric("Macro-F1", f"{metrics.get('macro_f1', 0):.4f}")
+            auc = metrics.get("roc_auc")
+            m5.metric("ROC-AUC", f"{auc:.4f}" if auc is not None else "N/A")
+            st.caption(
+                f"Decision threshold: {details.get('decision_threshold', 0.5):.2f} · "
+                f"Selection metric: {METRIC_COLUMNS.get(details.get('selection_metric', ''), details.get('selection_metric', ''))}"
+            )
+
+            if details.get("threshold_results"):
+                show_chart(_threshold_figure(details["threshold_results"], float(details.get("decision_threshold", 0.5))))
+
+            _model_comparison(disease)
+
+            with st.expander("View sample records"):
+                preview = [c for c in model_features + [target] if c in dataset.columns]
+                st.dataframe(dataset[preview].head(50), width="stretch")

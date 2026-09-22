@@ -1,313 +1,202 @@
-# 🏥 HealthAI — AI-Based Healthcare Analytics & Disease Risk Prediction Platform
+# ✚ AHEAD — Advanced Health Early Awareness and Disease Detection System
 
-**Senior Design Project** | Python · Streamlit · Scikit-learn · Plotly
+**Senior Design Project** · Python · Streamlit · scikit-learn · XGBoost · Plotly · Gemini
 
----
+AHEAD is an educational early-awareness screening platform. A user (or a clinician) enters
+lifestyle, medical-history and clinical values and receives a machine-learning screening
+estimate for **diabetes**, **cardiovascular disease** or **chronic kidney disease** — together
+with a gauge, next steps, the factors AHEAD noticed in the inputs and an optional AI-generated
+explanation.
 
-## 📋 Table of Contents
-
-1. [What This Project Does](#-what-this-project-does)
-2. [Project Structure](#-project-structure)
-3. [Datasets Used](#-datasets-used)
-4. [Setup Instructions (Windows / VS Code)](#-setup-instructions-windows--vs-code)
-5. [Running the App](#-running-the-app)
-6. [Re-training the Models](#-re-training-the-models)
-7. [How the Machine Learning Works](#-how-the-machine-learning-works)
-8. [Understanding Each File](#-understanding-each-file)
-9. [Pushing to GitHub](#-pushing-to-github)
-10. [Deploying on Streamlit Cloud](#-deploying-on-streamlit-cloud)
-11. [Common Errors & Fixes](#-common-errors--fixes)
+> AHEAD does not diagnose disease and must not be used to start, stop or change treatment.
 
 ---
 
-## 🎯 What This Project Does
+## Table of contents
 
-This platform lets a user enter their **clinical measurements** (like blood glucose, cholesterol, BMI, etc.) and receive a **machine-learning-based disease risk score** — either for Diabetes or Heart Disease.
-
-Under the hood:
-- Two **Random Forest** machine learning models are pre-trained and saved as `.pkl` files
-- When the user submits the form, the app loads the model and predicts the probability of disease
-- Results are shown as a **gauge chart**, a **risk label** (High/Low), and **personalised health tips**
-- A **Dataset Explorer** page lets you visualise the training data with interactive charts
+1. [Features](#features)
+2. [Project structure](#project-structure)
+3. [Setup](#setup)
+4. [Running the app](#running-the-app)
+5. [Demo accounts](#demo-accounts)
+6. [AI features (Gemini)](#ai-features-gemini)
+7. [Datasets](#datasets)
+8. [Re-training the models](#re-training-the-models)
+9. [How the machine learning works](#how-the-machine-learning-works)
+10. [Deploying on Streamlit Cloud](#deploying-on-streamlit-cloud)
+11. [Common errors](#common-errors)
 
 ---
 
-## 📂 Project Structure
+## Features
+
+| Area | What it does |
+|---|---|
+| **Sign-in** | Patient or Doctor/Admin demo accounts, public About / Contact / Help pages |
+| **Overview** | Welcome hero with quick-start, KPI cards, session risk distribution, dataset and model-quality charts |
+| **Screenings** | Guided three-section form per condition, six selectable model families (recommended first), gauge, next steps, risk-factor chips, urgent-care notice, AHEAD Insight (Gemini), model interpretation |
+| **Data & Analytics** | Dataset explorer, final test metrics, threshold sweep (heart), algorithm comparison table |
+| **Clinical Dashboard** *(doctors)* | Upload a CSV/XLSX of patient records, score the whole cohort, download results, review a single record |
+| **AI Assistant** | "Ask AHEAD" chat with suggested prompts; answers via Gemini (offline answers for the suggestions) |
+| **Settings** | Profile, Light/Dark appearance, notification & privacy preferences, account actions |
+
+---
+
+## Project structure
 
 ```
-healthcare_platform/
-│
-├── app.py                  ← Main Streamlit app (the website)
-├── train_model.py          ← Script to train and save ML models
-├── requirements.txt        ← All Python packages needed
-├── .gitignore              ← Files to exclude from GitHub
-│
-├── .streamlit/
-│   └── config.toml         ← Streamlit theme settings
-│
+SDP-Project-AHEAD/
+├── app.py                  ← entry point: page config, routing, sidebar
+├── ahead/
+│   ├── config.py           ← disease registry, form layout, labels, navigation, demo accounts
+│   ├── resources.py        ← cached models / metadata / datasets / images / Gemini client
+│   ├── theme.py            ← colour tokens (light & dark), global CSS, Plotly styling
+│   ├── components.py       ← shared UI pieces + session-state helpers
+│   ├── screening.py        ← the guided screening flow (form → prediction → guidance)
+│   └── pages/
+│       ├── public.py       ← login, about, contact, help
+│       ├── overview.py     ← dashboard
+│       ├── screenings.py   ← condition picker + predictor
+│       ├── analytics.py    ← data & model explorer
+│       ├── clinical.py     ← doctor-only cohort screening
+│       ├── assistant.py    ← Ask AHEAD chat
+│       └── settings.py     ← settings tabs
+├── train_model.py          ← benchmarks six model families per disease, saves models + metadata
+├── login.css               ← styles for the public (pre-login) pages
+├── assets/                 ← favicon and SVG icons (inlined as data URIs)
+├── static/                 ← large background images, served by Streamlit at app/static/…
+├── data/                   ← diabetes.csv · heart.csv · kidney_disease.csv
 ├── models/
-│   ├── diabetes_model.pkl  ← Trained diabetes model
-│   ├── heart_model.pkl     ← Trained heart disease model
-│   └── model_meta.json     ← Model metadata (features, accuracy)
-│
-├── data/
-│   ├── diabetes.csv        ← Pima Indians Diabetes Dataset (768 records)
-│   └── heart.csv           ← Cleveland Heart Disease Dataset (297 records)
-│
-└── utils/
-    └── helpers.py          ← Utility/helper functions
+│   ├── <disease>_model.pkl ← recommended pipeline per disease
+│   ├── all_models/         ← every benchmarked pipeline (<disease>_<model>.pkl)
+│   └── model_meta.json     ← features, metrics, thresholds, benchmark results
+├── .streamlit/config.toml  ← Streamlit theme + server settings
+└── requirements.txt
 ```
 
 ---
 
-## 📊 Datasets Used
-
-### Pima Indians Diabetes Dataset
-- Records: 768
-- Target column: `Outcome`
-- Features: pregnancies, glucose, blood pressure, skin thickness, insulin, BMI, diabetes pedigree function, and age
-- Task: Binary classification: diabetic or not diabetic
-
-### Cleveland Heart Disease Dataset
-- Records: 297
-- Target column: `condition`
-- Features: 13 clinical factors including age, sex, chest pain type, resting blood pressure, cholesterol, fasting blood sugar, ECG results, maximum heart rate, exercise-induced angina, oldpeak, slope, ca, and thal
-- Task: Binary classification: heart disease present or not present
-
----
-
-## 🛠️ Setup Instructions (Windows / VS Code)
-
-### Step 1 — Open the project folder in VS Code
-
-1. Extract the downloaded zip file (or folder) anywhere on your computer, e.g. `C:\Users\YourName\Desktop\healthcare_platform`
-2. Open **VS Code**
-3. Click `File → Open Folder` and select the `healthcare_platform` folder
-
-### Step 2 — Open the Terminal in VS Code
-
-- Press `` Ctrl + ` `` (backtick key, top-left of keyboard)
-- You should see a terminal panel at the bottom
-
-### Step 3 — Create a Virtual Environment
-
-In the terminal, type:
-```bash
-python -m venv venv
-```
-
-This creates a folder called `venv` — it's an isolated Python environment for this project.
-
-### Step 4 — Activate the Virtual Environment
-
-**On Windows:**
-```bash
-venv\Scripts\activate
-```
-
-You should now see `(venv)` at the start of your terminal prompt. That means the environment is active.
-
-> ⚠️ If you get an error like "execution policy", run this first:
-> ```powershell
-> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-> ```
-> Then try activating again.
-
-### Step 5 — Install All Required Packages
+## Setup
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-This installs Streamlit, scikit-learn, pandas, plotly, and everything else. It may take 2–4 minutes.
+Python 3.11 is recommended.
 
 ---
 
-## 🚀 Running the App
-
-Make sure your virtual environment is **activated** (you see `(venv)` in the terminal), then run:
+## Running the app
 
 ```bash
 streamlit run app.py
 ```
 
-Streamlit will print a URL like:
-```
-Local URL: http://localhost:8501
-```
-
-Open that in your browser and the app will load!
-
-> Press `Ctrl + C` in the terminal to stop the app.
+Open the printed URL (usually `http://localhost:8501`).
 
 ---
 
-## 🔁 Re-training the Models
+## Demo accounts
 
-The `.pkl` files (trained models) are already included, so you don't need to run this. But if you want to re-train from scratch:
+| Role | Email | Password |
+|---|---|---|
+| Patient | `user@ahead.demo` | `user123` |
+| Doctor / Admin | `doctor@ahead.demo` | `doctor123` |
+
+Doctor accounts additionally see the **Clinical Dashboard**. Accounts are defined in
+`ahead/config.py` (`DEMO_ACCOUNTS`) — this is a prototype, not a real authentication system.
+
+---
+
+## AI features (Gemini)
+
+AHEAD Insight (personalised result explanation) and the AI Assistant use Google Gemini
+through the `google-genai` SDK. Provide an API key in **either** place:
+
+```bash
+export GEMINI_API_KEY="your-key"          # environment variable
+```
+
+or in `.streamlit/secrets.toml` (git-ignored):
+
+```toml
+GEMINI_API_KEY = "your-key"
+```
+
+Without a key the app still works: Insight shows a notice and the Assistant answers the
+suggested questions from built-in text. The model name lives in `ahead/config.py`
+(`GEMINI_MODEL`).
+
+---
+
+## Datasets
+
+| Condition | File | Records | Target |
+|---|---|---|---|
+| Diabetes | `data/diabetes.csv` | 100,000 | `diabetes` |
+| Cardiovascular | `data/heart.csv` | 246,022 | `HadHeartAttack` |
+| Chronic kidney disease | `data/kidney_disease.csv` | 1,659 | `Diagnosis` |
+
+Two of the datasets are strongly imbalanced (8.5 % positive for diabetes, 5.5 % for heart,
+92 % positive for kidney), which is why the app reports disease recall, F1/F2 and ROC-AUC
+alongside accuracy.
+
+---
+
+## Re-training the models
+
+The trained pipelines are included. To rebuild everything:
 
 ```bash
 python train_model.py
 ```
 
-This will:
-1. Load `data/diabetes.csv` and `data/heart.csv`
-2. Split into 80% training / 20% test data
-3. Train a Random Forest model for each disease
-4. Print accuracy and a classification report
-5. Save new `.pkl` files to the `models/` folder
+For each disease the script:
+
+1. splits the data 64 % train / 16 % validation / 20 % test (stratified),
+2. trains Random Forest, Logistic Regression, Gradient Boosting, SVM, Decision Tree and XGBoost
+   inside a `Pipeline(preprocessor → classifier)`,
+3. saves every pipeline to `models/all_models/` so the app can compare them,
+4. picks the winner on the validation set (macro-F1 for diabetes/kidney, F2 for heart),
+5. tunes the heart model's probability threshold on the validation set,
+6. reports final metrics once on the untouched test set and writes `models/model_meta.json`.
 
 ---
 
-## 🤖 How the Machine Learning Works
+## How the machine learning works
 
-### What is a Random Forest?
-A Random Forest is a **collection of decision trees**. Each tree learns patterns from the data, like:
-> "If Glucose > 140 AND BMI > 30 AND Age > 50 → likely diabetic"
-
-With 200 trees, the model takes a **majority vote** to make a final prediction. This makes it more accurate and less prone to errors than a single tree.
-
-### Pipeline (Scaler + Classifier)
-The model uses a scikit-learn **Pipeline** — two steps chained together:
-
-```
-Raw input → StandardScaler → RandomForestClassifier → Probability
-```
-
-**StandardScaler** normalises all values to the same range (mean=0, std=1) so that large numbers (like cholesterol=240) don't unfairly dominate small ones (like pregnancies=2).
-
-### Probability vs Prediction
-- `predict_proba()` → gives a probability between 0 and 1 (e.g. `0.73` = 73% chance of disease)
-- `predict()` → gives 0 or 1 (the binary decision)
-
-### Feature Importance
-After training, `clf.feature_importances_` tells you how much each feature contributed to the model's accuracy. This is shown in the bar chart inside the predictor pages.
+* **Preprocessing** — numeric columns are median-imputed and standardised; categorical columns
+  are most-frequent-imputed and one-hot encoded (`ColumnTransformer`).
+* **Prediction** — `predict_proba()` gives the probability of the disease class; the result is
+  "elevated" when it reaches the model's decision threshold (0.5, or the tuned value for the
+  recommended heart model).
+* **Interpretation** — tree models expose `feature_importances_`, Logistic Regression uses
+  absolute coefficient magnitude; RBF-SVM has no per-feature importance.
+* **Rule-based factors** — independent of the model, the app highlights entered values that are
+  commonly discussed with a clinician (e.g. HbA1c ≥ 5.7 %, BMI ≥ 30, eGFR < 60).
 
 ---
 
-## 📄 Understanding Each File
+## Deploying on Streamlit Cloud
 
-### `app.py`
-The main file. Uses Streamlit to create the web interface. Key sections:
-- `st.set_page_config(...)` — sets page title, icon, layout
-- `@st.cache_resource` — loads the model once and caches it (so it doesn't reload on every click)
-- `with st.form(...)` — creates the input form for the user
-- `model.predict_proba(input_data)` — runs the ML prediction
-- `st.plotly_chart(...)` — renders interactive charts
-
-### `train_model.py`
-Standalone training script. Run this to rebuild models. Uses:
-- `train_test_split()` — splits data into training and test sets
-- `Pipeline([...])` — chains scaler + classifier
-- `pickle.dump(...)` — saves the trained model to disk
-
-### `models/model_meta.json`
-A JSON file that stores metadata about each model:
-```json
-{
-  "diabetes": {
-    "features": ["Pregnancies", "Glucose", ...],
-    "accuracy": 0.734
-  }
-}
-```
-`app.py` reads this to know which feature names to use when building the input DataFrame.
-
-### `requirements.txt`
-Lists all Python packages. Streamlit Cloud reads this when deploying.
-
-### `.streamlit/config.toml`
-Sets the colour theme for the app.
+1. Push the repository to GitHub — `app.py`, the whole `ahead/` package, `assets/`, `static/`,
+   `models/` and `data/` must all be committed (note: `data/heart.csv` is 82 MB, above GitHub's
+   50 MB warning threshold; consider Git LFS).
+2. On [share.streamlit.io](https://share.streamlit.io) create a new app pointing at `app.py`.
+3. Add `GEMINI_API_KEY` under *Advanced settings → Secrets* if you want the AI features.
 
 ---
 
-## 📤 Pushing to GitHub
+## Common errors
 
-### Step 1 — Create a GitHub account
-Go to [github.com](https://github.com) and sign up (free).
-
-### Step 2 — Create a new repository
-1. Click the `+` button → `New repository`
-2. Name it e.g. `healthcare-ai-platform`
-3. Set it to **Public**
-4. **Do NOT** tick "Add README" (we already have one)
-5. Click `Create repository`
-
-### Step 3 — Connect your local folder to GitHub
-
-In your VS Code terminal (with venv active):
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: Healthcare AI platform"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/healthcare-ai-platform.git
-git push -u origin main
-```
-
-Replace `YOUR_USERNAME` with your actual GitHub username.
-
-> If Git asks for login, use your GitHub username and a **Personal Access Token** (not password).
-> Create one at: GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic)
-
-### Step 4 — Verify
-Go to `https://github.com/YOUR_USERNAME/healthcare-ai-platform` — you should see all your files!
-
----
-
-## ☁️ Deploying on Streamlit Cloud
-
-### Step 1 — Sign up for Streamlit Cloud
-Go to [share.streamlit.io](https://share.streamlit.io) and sign in with your **GitHub account**.
-
-### Step 2 — Deploy your app
-1. Click **"New app"**
-2. Select your repository (`healthcare-ai-platform`)
-3. Branch: `main`
-4. Main file path: `app.py`
-5. Click **"Deploy!"**
-
-Streamlit Cloud will:
-- Read `requirements.txt` and install all packages
-- Run `streamlit run app.py`
-- Give you a public URL like `https://yourname-healthcare-ai.streamlit.app`
-
-> ⏱️ First deploy takes about 3–5 minutes.
-
----
-
-## 🐛 Common Errors & Fixes
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `'streamlit' is not recognized` | Streamlit not installed or venv not active | Activate venv and run `pip install -r requirements.txt` |
-| `FileNotFoundError: models/diabetes_model.pkl` | Models not generated | Run `python train_model.py` |
-| `ModuleNotFoundError: No module named 'plotly'` | Package missing | Run `pip install plotly` |
-| `venv\Scripts\activate` fails on Windows | Execution policy blocked | Run: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` |
-| App shows blank page | Browser cache | Hard refresh: `Ctrl + Shift + R` |
-| Git push fails | Wrong remote URL | Re-run `git remote set-url origin <your-url>` |
-
----
-
-## 🔮 What to Add Next (Suggested Improvements)
-
-1. **SHAP explanations** — Install `shap` and add `shap.TreeExplainer` to show per-patient feature contributions
-2. **More diseases** — Add kidney disease, liver disease datasets
-3. **Model comparison** — Show accuracy side-by-side for Random Forest vs Logistic Regression vs XGBoost
-4. **Export report** — Allow users to download their results as a PDF
-5. **User history** — Store predictions in a database (SQLite)
-
----
-
-## 📚 Resources
-
-- [Streamlit Docs](https://docs.streamlit.io)
-- [Scikit-learn Random Forest](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html)
-- [Plotly Express](https://plotly.com/python/plotly-express/)
-- [Pima Diabetes Dataset Info](https://www.kaggle.com/datasets/uciml/pima-indians-diabetes-database)
-- [Heart Disease Cleveland UCI Dataset](https://www.kaggle.com/datasets/cherngs/heart-disease-cleveland-uci)
-
----
-
-*Built with ❤️ for Senior Design Project | HealthAI Platform*
+| Error | Fix |
+|---|---|
+| "No trained model is available" | Run `python train_model.py` to create `models/` |
+| `ModuleNotFoundError` | Activate the virtual environment and `pip install -r requirements.txt` |
+| A selected model says "has not been saved yet" | Run `python train_model.py` to generate `models/all_models/` |
+| AI Assistant / Insight unavailable | Provide `GEMINI_API_KEY` (see above) |
+| Background images missing | `server.enableStaticServing = true` must stay in `.streamlit/config.toml` and the PNGs in `static/` |
+| Signed out after refreshing the page | Expected: the prototype keeps the session in memory only (no cookies) |
+| Blank page after editing | Hard-refresh the browser (`Ctrl/Cmd + Shift + R`) |

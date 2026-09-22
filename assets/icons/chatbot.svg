@@ -1,0 +1,67 @@
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 64 64"
+>
+    <!-- antenna stem -->
+    <rect
+        x="30"
+        y="14"
+        width="4"
+        height="13"
+        rx="2"
+        fill="#0EA5AE"
+    />
+
+    <!-- antenna circle -->
+    <circle
+        cx="32"
+        cy="11"
+        r="4"
+        fill="#0EA5AE"
+    />
+
+    <!-- left ear -->
+    <rect
+        x="9"
+        y="29"
+        width="8"
+        height="15"
+        rx="4"
+        fill="#0EA5AE"
+    />
+
+    <!-- right ear -->
+    <rect
+        x="47"
+        y="29"
+        width="8"
+        height="15"
+        rx="4"
+        fill="#0EA5AE"
+    />
+
+    <!-- robot head -->
+    <rect
+        x="14"
+        y="24"
+        width="36"
+        height="25"
+        rx="11"
+        fill="#0EA5AE"
+    />
+
+    <!-- white eyes -->
+    <circle
+        cx="25"
+        cy="36"
+        r="4"
+        fill="#FFFFFF"
+    />
+
+    <circle
+        cx="39"
+        cy="36"
+        r="4"
+        fill="#FFFFFF"
+    />
+</svg>

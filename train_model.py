@@ -37,6 +37,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import (
     RandomForestClassifier,
@@ -628,11 +629,14 @@ def train_and_benchmark(
 
     for name, classifier in candidate_models.items():
 
+        # Each candidate gets its own copy of the preprocessor: sklearn Pipelines
+        # do not clone steps, so sharing one ColumnTransformer would let a later
+        # fit (e.g. on the SVM subsample) silently overwrite an earlier model's.
         pipeline = Pipeline(
             steps=[
                 (
                     "preprocessor",
-                    preprocessor,
+                    clone(preprocessor),
                 ),
                 (
                     "classifier",
