@@ -190,26 +190,11 @@ NAV_ITEMS = [
 
 
 # =============================================================================
-# DEMO ACCOUNTS  (prototype only — no real authentication)
+# ROLE NAMES
 # =============================================================================
 
 ROLE_PATIENT = "Patient"
 ROLE_DOCTOR = "Doctor"
-
-DEMO_ACCOUNTS = {
-    "user@ahead.demo": {
-        "password": "user123",
-        "role": ROLE_PATIENT,
-        "name": "Sarah Ahmed",
-        "institution": "",
-    },
-    "doctor@ahead.demo": {
-        "password": "doctor123",
-        "role": ROLE_DOCTOR,
-        "name": "Dr. Sarah Ahmed",
-        "institution": "AHEAD Medical Center",
-    },
-}
 
 DISCLAIMER_TEXT = (
     "AHEAD is an educational and research screening prototype. It does not "

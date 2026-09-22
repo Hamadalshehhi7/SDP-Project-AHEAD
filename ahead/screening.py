@@ -7,6 +7,7 @@ AHEAD Insight (Gemini) and model interpretation.
 
 import re
 from html import escape
+from ahead.i18n import tr, arabic, AR_STEPS
 
 import numpy as np
 import pandas as pd
@@ -20,7 +21,8 @@ from ahead.components import (
 from ahead.config import (
     DISEASES, FEATURE_GROUPS, GENDER_CODED_FIELDS, GROUP_DESCRIPTIONS, pretty_label,
 )
-from ahead.resources import feature_summary, features, gemini_available, generate_text, load_pipeline
+from ahead.resources import feature_summary, features, gemini_available, generate_text, load_pipeline, final_metrics, validation_results, best_model
+from ahead.reports import patient_report
 from ahead.theme import show_chart, style_figure, tokens
 
 
@@ -36,7 +38,7 @@ def _age_category_sort_key(value: str):
 def render_feature_input(stats: dict, feature: str, key: str):
     """One form widget for *feature*, built from the cached dataset statistics."""
     info = stats[feature]
-    label = pretty_label(feature)
+    label = tr(pretty_label(feature))
 
     if info["kind"] == "category":
         options = info["options"]
@@ -48,12 +50,14 @@ def render_feature_input(stats: dict, feature: str, key: str):
         return st.selectbox(label, options, index=default_index, key=key)
 
     if info["binary"] and feature in GENDER_CODED_FIELDS:
+        names = ("ذكر", "أنثى") if arabic() else ("Male", "Female")
         return st.selectbox(label, [0, 1], index=info["mode"] or 0,
-                            format_func=lambda x: "Male" if x == 0 else "Female", key=key)
+                            format_func=lambda x: names[x], key=key)
 
     if info["binary"]:   # any other 0/1-coded column is a No/Yes choice
+        names = ("لا", "نعم") if arabic() else ("No", "Yes")
         return st.selectbox(label, [0, 1], index=info["mode"] or 0,
-                            format_func=lambda x: "No" if x == 0 else "Yes", key=key)
+                            format_func=lambda x: names[x], key=key)
 
     minimum, maximum, median = info["min"], info["max"], info["median"]
     # Allow realistic values slightly outside the training range instead of hard-capping
@@ -70,6 +74,23 @@ def render_feature_input(stats: dict, feature: str, key: str):
     return st.number_input(
         label, min_value=round(low, 2), max_value=round(high, 2), value=round(median, 2), step=0.1, key=key,
     )
+
+
+def individual_sensitivity(pipeline, values: dict, stats: dict) -> list:
+    """Illustrative change when one entered value is replaced by the training median/mode."""
+    baseline = float(pipeline.predict_proba(pd.DataFrame([values]))[0, 1])
+    comparisons = []
+    for feature, actual in values.items():
+        info = stats[feature]
+        reference = info["default"] if info["kind"] == "category" else (
+            info["mode"] if info["binary"] else info["median"])
+        if reference is None or reference == actual:
+            continue
+        changed = dict(values)
+        changed[feature] = reference
+        difference = baseline - float(pipeline.predict_proba(pd.DataFrame([changed]))[0, 1])
+        comparisons.append((feature, actual, reference, difference))
+    return sorted(comparisons, key=lambda row: abs(row[3]), reverse=True)[:5]
 
 
 # =============================================================================
@@ -371,7 +392,7 @@ def render_predictor(disease: str) -> bool:
 
     page_header("AHEAD Clinical Screening", info["page_title"], info["page_subtitle"])
 
-    st.markdown("#### Prediction model")
+    st.markdown("#### " + tr("Prediction model"))
     pipeline, selected_name, threshold = model_selector(disease, key=f"{disease}_model_selector")
     if pipeline is None:
         st.error("No trained model is available. Run `python train_model.py` first.")
@@ -396,7 +417,7 @@ def render_predictor(disease: str) -> bool:
                 f"""
 <div class="form-section-title">
     <div class="form-section-number">{number}</div>
-    <div><h3>{escape(section)}</h3><p>{escape(GROUP_DESCRIPTIONS.get(section, "Other values used by the model."))}</p></div>
+    <div><h3>{escape(tr(section))}</h3><p>{escape(tr(GROUP_DESCRIPTIONS.get(section, "Other values used by the model.")))}</p></div>
 </div>
 """
             )
@@ -405,7 +426,7 @@ def render_predictor(disease: str) -> bool:
             for index, feature in enumerate(active):
                 with columns[index % 3]:
                     values[feature] = render_feature_input(stats, feature, f"{disease}_{feature}")
-        submitted = st.form_submit_button("Generate Screening Result", width="stretch", type="primary")
+        submitted = st.form_submit_button(tr("Generate Screening Result"), width="stretch", type="primary")
 
     # ------------------------------------------------------------------ compute / restore
     result = None
@@ -441,11 +462,26 @@ def render_predictor(disease: str) -> bool:
     with left:
         result_card(prediction, probability, disease_label, model_name, threshold)
     with right:
-        show_chart(risk_gauge(probability, threshold, f"{info['label']} Probability"))
+        show_chart(risk_gauge(probability, threshold, f"{info['label']} model score"))
+    report_metrics = final_metrics(disease) if model_name == best_model(disease) else next(
+        (m for m in validation_results(disease) if m["model"] == model_name), {})
+    source = "test" if model_name == best_model(disease) else "validation"
+    st.info(
+        f"{model_name} {source}-set precision: {report_metrics.get('precision_disease', 0):.1%}; "
+        f"recall: {report_metrics.get('recall_disease', 0):.1%}. "
+        "Precision describes how often flagged examples were positive in that dataset; "
+        "recall describes how many positive examples the model flagged. "
+        "Performance for an individual or a different population can differ."
+    )
+    st.download_button(tr("Download screening PDF"), patient_report(
+        disease, "Session screening", values, probability, threshold, model_name, report_metrics,
+        metric_source=source),
+        file_name=f"ahead_{disease}_screening.pdf", mime="application/pdf")
 
     # ------------------------------------------------------------------ next steps
     section_heading("Recommended Next Steps", "Practical actions to consider after this screening result.")
-    for index, (title, text) in enumerate(get_next_steps(disease, prediction), start=1):
+    steps = AR_STEPS[disease][prediction] if arabic() else get_next_steps(disease, prediction)
+    for index, (title, text) in enumerate(steps, start=1):
         st.html(
             f"""
 <div class="action-card">
@@ -455,6 +491,7 @@ def render_predictor(disease: str) -> bool:
 </div>
 """
         )
+    st.link_button(tr("Find a nearby clinic (map search)"), "https://www.google.com/maps/search/hospital+near+me/")
 
     # ------------------------------------------------------------------ risk factors
     risk_factors = identify_risk_factors(disease, values)
@@ -513,6 +550,21 @@ def render_predictor(disease: str) -> bool:
             )
     else:
         st.info(note)
+
+    st.subheader("Your result: model input sensitivity")
+    st.caption("For each row below, one entered value was replaced with a typical training-data value. "
+               "The score difference is illustrative, not a cause, diagnosis, or medical recommendation.")
+    try:
+        local = individual_sensitivity(result_pipeline, values, stats)
+        if local:
+            st.dataframe(pd.DataFrame([{"Input": pretty_label(f), "Your value": str(v),
+                                        "Comparison value": str(reference),
+                                        "Score change (percentage points)": round(delta * 100, 1)}
+                                       for f, v, reference, delta in local]), hide_index=True, width="stretch")
+        else:
+            st.info("No input comparisons were available.")
+    except (ValueError, TypeError):
+        st.info("Individual model comparison is unavailable for this result.")
 
     with st.expander("View entered information"):
         summary = input_frame.T.rename(columns={0: "Entered Value"})

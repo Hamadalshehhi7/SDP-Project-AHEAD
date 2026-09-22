@@ -35,7 +35,10 @@ from ahead.pages.public import PUBLIC_CONTENT, render_login, render_public_page 
 from ahead.pages.screenings import render_screenings  # noqa: E402
 from ahead.pages.settings import render_settings  # noqa: E402
 from ahead.theme import apply_theme, inject_global_css, sidebar_dynamic_css  # noqa: E402
+from ahead.storage import init_db  # noqa: E402
+from ahead.i18n import tr  # noqa: E402
 
+init_db()
 init_state()
 inject_global_css()
 
@@ -89,7 +92,7 @@ with st.sidebar:
 
     with st.container(key="sidebar_nav"):
         for key, label, _icon, _doctor_only in visible_nav:
-            if st.button(label, key=f"nav_{key}", width="stretch"):
+            if st.button(tr(label), key=f"nav_{key}", width="stretch"):
                 if key == "assistant":
                     open_assistant(active)
                 go_to(key)
@@ -108,7 +111,7 @@ with st.sidebar:
 </div>
 """
         )
-        if st.button("Log Out", key="sidebar_logout", width="stretch"):
+        if st.button(tr("Log Out"), key="sidebar_logout", width="stretch"):
             logout()
 
 # =============================================================================
@@ -117,7 +120,7 @@ with st.sidebar:
 
 if active != "assistant":
     with st.container(key="open_assistant"):
-        if st.button("Open AHEAD Assistant", key="open_assistant_button"):
+        if st.button(tr("Open AHEAD Assistant"), key="open_assistant_button"):
             open_assistant(active)
 
 # =============================================================================
@@ -133,4 +136,7 @@ PAGES = {
     "settings": render_settings,
 }
 
-PAGES[active]()
+if active == "clinical" and not user["is_doctor"]:
+    st.error("Doctor access required.")
+else:
+    PAGES[active]()

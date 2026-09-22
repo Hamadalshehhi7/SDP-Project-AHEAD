@@ -11,6 +11,8 @@ import streamlit as st
 
 from ahead.components import current_user, logout, pref
 from ahead.theme import APPEARANCE_OPTIONS, appearance_mode
+from ahead.storage import change_password, delete_records, delete_screenings, update_profile, update_preferences
+from ahead.i18n import tr
 
 
 def _row(icon: str, title: str, copy: str) -> str:
@@ -30,6 +32,17 @@ def _panel(title: str, copy: str) -> None:
 
 def _sync_pref(name: str) -> None:
     st.session_state.prefs[name] = st.session_state[f"pref_widget_{name}"]
+    _save_prefs()
+
+
+def _save_prefs() -> None:
+    user = st.session_state.get("user")
+    if user:
+        update_preferences(user["id"], {
+            "toggles": st.session_state.prefs,
+            "language": st.session_state.get("pref_language", "English"),
+            "appearance": st.session_state.get("appearance_mode", "Light"),
+        })
 
 
 def _toggle_row(icon: str, title: str, copy: str, name: str) -> None:
@@ -79,11 +92,16 @@ def _profile_tab(user: dict) -> None:
             elif "@" not in email or "." not in email.split("@")[-1]:
                 st.error("Please enter a valid email address.")
             else:
-                st.session_state.user.update(
-                    {"name": full_name.strip(), "email": email.strip().lower(), "institution": institution.strip()}
-                )
-                st.toast("Profile updated.", icon="✅")
-                st.rerun()
+                try:
+                    update_profile(st.session_state.user["id"], full_name, email, institution)
+                except Exception:
+                    st.error("Unable to save this profile. The email may already be used.")
+                else:
+                    st.session_state.user.update(
+                        {"name": full_name.strip(), "email": email.strip().lower(), "institution": institution.strip()}
+                    )
+                    st.toast("Profile updated.", icon="✅")
+                    st.rerun()
 
 
 def _appearance_tab() -> None:
@@ -107,31 +125,37 @@ def _appearance_tab() -> None:
                 type="primary" if active else "secondary", disabled=active,
             ):
                 st.session_state.appearance_mode = mode
+                _save_prefs()
                 st.rerun()
     st.caption("The display mode applies to this browser session and switches charts and every AHEAD element immediately.")
 
 
 def _preferences_tab() -> None:
-    _panel("Notifications", "Choose which AHEAD updates you want to receive in this prototype.")
+    _panel("Display preferences", "Notification delivery is not available in this prototype.")
     with st.container(key="settings_rows"):
-        _toggle_row("◉", "Screening results", "Notify when a new screening result is available.", "notify_screening")
-        _toggle_row("▣", "System updates", "Important announcements about the platform.", "notify_system")
-        _toggle_row("✎", "Educational content", "Tips and health-awareness information.", "notify_education")
+        st.info("No email, text or push notifications are sent.")
 
-    _panel("Data & privacy", "Control what AHEAD keeps during this browser session. Nothing is stored on a server.")
+    _panel("Data & privacy", "Screening history and doctor review records are saved in the configured local database.")
     with st.container(key="settings_rows_privacy"):
-        _toggle_row("◈", "Keep screening history", "Show your session results on the Overview page.", "keep_history")
+        _toggle_row("◈", "Keep screening history", "Save future results and show them on the Overview page.", "keep_history")
     history = st.session_state.get("screening_history", [])
     c1, c2 = st.columns([0.3, 0.7])
     with c1:
         if st.button(f"Clear session history ({len(history)})", disabled=not history, width="stretch"):
             st.session_state.screening_history = []
             st.session_state.last_results = {}
+            delete_screenings(st.session_state.user["id"])
             st.toast("Screening history cleared.")
             st.rerun()
 
-    _panel("Language", "English is currently available. Additional languages are planned.")
-    st.selectbox("Application language", ["English"], disabled=True, key="pref_language")
+    _panel("Language", "Choose the language for patient screening and navigation. Doctor tools and exported PDF remain in English.")
+    st.selectbox("Application language / لغة التطبيق", ["English", "العربية"],
+                 key="pref_language", on_change=_save_prefs)
+    if user := st.session_state.get("user"):
+        if user["role"] == "Doctor" and st.button("Delete my saved clinical records", type="secondary"):
+            delete_records(user["id"])
+            st.success("Your clinical review records were deleted.")
+            st.rerun()
 
 
 def _account_tab(user: dict) -> None:
@@ -145,15 +169,14 @@ def _account_tab(user: dict) -> None:
             if st.form_submit_button("Update password", type="primary"):
                 if not current_pw or not new_pw:
                     st.error("Please fill in every field.")
-                elif current_pw != (st.session_state.user or {}).get("password"):
-                    st.error("The current password is incorrect.")
-                elif len(new_pw) < 6:
-                    st.error("Use at least 6 characters.")
+                elif len(new_pw) < 12:
+                    st.error("Use at least 12 characters.")
                 elif new_pw != confirm_pw:
                     st.error("The new passwords do not match.")
+                elif not change_password(st.session_state.user["id"], current_pw, new_pw):
+                    st.error("The current password is incorrect.")
                 else:
-                    st.session_state.user["password"] = new_pw
-                    st.success("Password updated for this session. (Demo accounts reset when the app restarts.)")
+                    st.success("Password updated.")
 
     with st.expander("🖥  Manage sessions — view and manage active sessions"):
         st.html(_row("●", "This browser", f"Signed in as {user['email']} · active now"))

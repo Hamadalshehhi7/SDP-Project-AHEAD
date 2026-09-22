@@ -6,11 +6,15 @@ About / Contact / Help information pages.  All share login.css.
 """
 
 from html import escape
+import os
 
 import streamlit as st
 
-from ahead.config import BASE, DEMO_ACCOUNTS, ROLE_DOCTOR, ROLE_PATIENT
+from ahead.config import BASE, ROLE_DOCTOR, ROLE_PATIENT
 from ahead.resources import icon_uri, static_url
+from ahead.storage import authenticate, create_user, load_screenings
+from ahead.config import DISEASES
+from datetime import datetime
 
 
 @st.cache_data(show_spinner=False)
@@ -64,19 +68,21 @@ def _footer() -> None:
 def _sign_in(email: str, password: str, account_type: str) -> str | None:
     """Return an error message, or None on success (session is updated)."""
     email = (email or "").strip().lower()
-    account = DEMO_ACCOUNTS.get(email)
     wanted = ROLE_PATIENT if account_type == "Patient" else ROLE_DOCTOR
-    # One generic message: do not reveal which of email / password / account type was wrong.
-    if not account or password != account["password"] or account["role"] != wanted:
+    account = authenticate(email, password, wanted)
+    if not account:
         return "Incorrect email, password or account type."
     st.session_state.authenticated = True
-    st.session_state.user = {
-        "email": email,
-        "name": account["name"],
-        "role": account["role"],
-        "institution": account["institution"],
-        "password": account["password"],  # demo only: lets Settings verify a password change
-    }
+    st.session_state.user = account
+    st.session_state.prefs = {**st.session_state.prefs, **account.get("preferences", {}).get("toggles", {})}
+    st.session_state.pref_language = account.get("preferences", {}).get("language", "English")
+    st.session_state.appearance_mode = account.get("preferences", {}).get("appearance", "Light")
+    st.session_state.screening_history = [
+        {"time": datetime.fromisoformat(item["created_at"]), "disease": item["disease"],
+         "label": DISEASES[item["disease"]]["label"], "model": item["model"],
+         "probability": item["score"], "prediction": item["prediction"], "threshold": item["threshold"]}
+        for item in load_screenings(account["id"]) if item["disease"] in DISEASES
+    ]
     return None
 
 
@@ -146,12 +152,20 @@ def render_login() -> None:
                         st.query_params.clear()
                         st.rerun()
 
-                with st.expander("Demo accounts"):
-                    rows = "\n\n".join(
-                        f"**{'Doctor / Admin' if acc['role'] == ROLE_DOCTOR else 'Patient'}** — `{mail}` · password `{acc['password']}`"
-                        for mail, acc in DEMO_ACCOUNTS.items()
-                    )
-                    st.markdown(rows)
+                with st.expander("Create a patient account"):
+                    with st.form("patient_registration"):
+                        name = st.text_input("Your full name")
+                        new_email = st.text_input("Your email")
+                        new_password = st.text_input("Choose a password (12+ characters)", type="password")
+                        if st.form_submit_button("Create account"):
+                            if not name.strip() or "@" not in new_email or len(new_password) < 12:
+                                st.error("Provide a name, valid email and password of at least 12 characters.")
+                            elif new_email.strip().lower() == os.environ.get("AHEAD_DOCTOR_EMAIL", "").strip().lower():
+                                st.error("This email address is reserved.")
+                            elif create_user(new_email, new_password, ROLE_PATIENT, name):
+                                st.success("Account created. Sign in above.")
+                            else:
+                                st.error("That email is already registered.")
 
     _footer()
 

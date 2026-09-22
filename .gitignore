@@ -15,3 +15,5 @@ __pycache__/
 # local scratch copies
 *.backup*
 *.bak
+ahead.sqlite3
+ahead.sqlite3-*

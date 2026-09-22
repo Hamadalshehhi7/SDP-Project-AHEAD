@@ -21,29 +21,25 @@ from ahead.theme import show_chart, style_figure, tokens
 def _risk_distribution_figure(history: list) -> go.Figure:
     t = tokens()
     frame = pd.DataFrame(history)
-    # Bands are relative to each screening's own decision threshold, so "High" == elevated result.
-    ratio = frame["probability"] / frame.get("threshold", pd.Series(0.5, index=frame.index)).fillna(0.5)
-    band = pd.Series("Moderate", index=frame.index)
-    band[ratio < 0.5] = "Low"
-    band[frame["prediction"] == 1] = "High"
-    bands = band.value_counts().reindex(["Low", "Moderate", "High"]).fillna(0)
+    bands = frame["prediction"].map({0: "Not flagged", 1: "Flagged"}).value_counts().reindex(
+        ["Not flagged", "Flagged"]).fillna(0)
     elevated_pct = 100 * (frame["prediction"] == 1).mean()
     figure = go.Figure(
         go.Pie(
             labels=bands.index.tolist(),
             values=bands.values.tolist(),
             hole=0.62,
-            marker=dict(colors=[t["success"], t["warning"], t["danger"]]),
+            marker=dict(colors=[t["success"], t["danger"]]),
             textinfo="none",
             sort=False,
         )
     )
     figure.add_annotation(
-        text=f"<b>{elevated_pct:.0f}%</b><br><span style='font-size:11px'>Elevated</span>",
+        text=f"<b>{elevated_pct:.0f}%</b><br><span style='font-size:11px'>Flagged</span>",
         showarrow=False, font=dict(size=22, color=t["title"]),
     )
     style_figure(figure, height=300, legend=True)
-    figure.update_layout(title="Risk distribution — this session")
+    figure.update_layout(title="Screening classifications — this session")
     return figure
 
 
@@ -52,11 +48,11 @@ def _screenings_by_condition_figure(history: list) -> go.Figure:
     counts = (
         frame.groupby(["label", "prediction"]).size().reset_index(name="Count")
     )
-    counts["Result"] = counts["prediction"].map({0: "Lower risk", 1: "Elevated"})
+    counts["Result"] = counts["prediction"].map({0: "Not flagged", 1: "Flagged"})
     t = tokens()
     figure = px.bar(
         counts, x="label", y="Count", color="Result", barmode="group", title="Screenings by condition",
-        color_discrete_map={"Lower risk": t["success"], "Elevated": t["danger"]},
+        color_discrete_map={"Not flagged": t["success"], "Flagged": t["danger"]},
     )
     style_figure(figure, height=300, legend=True)
     figure.update_layout(xaxis_title="", yaxis_title="", yaxis=dict(dtick=1))
@@ -151,10 +147,7 @@ def render_overview() -> None:
             show_chart(_risk_distribution_figure(history))
         with right:
             show_chart(_screenings_by_condition_figure(history))
-        st.caption(
-            "High = the model score reached that screening's decision threshold (an elevated result); "
-            "Moderate = at least half of the threshold; Low = below that."
-        )
+        st.caption("Flagged means the model score reached that screening's threshold. These counts do not establish disease prevalence.")
         with st.expander("Recent screenings"):
             table = pd.DataFrame(
                 [

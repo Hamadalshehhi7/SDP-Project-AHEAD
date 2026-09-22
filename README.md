@@ -36,9 +36,9 @@ explanation.
 | **Overview** | Welcome hero with quick-start, KPI cards, session risk distribution, dataset and model-quality charts |
 | **Screenings** | Guided three-section form per condition, six selectable model families (recommended first), gauge, next steps, risk-factor chips, urgent-care notice, AHEAD Insight (Gemini), model interpretation |
 | **Data & Analytics** | Dataset explorer, final test metrics, threshold sweep (heart), algorithm comparison table |
-| **Clinical Dashboard** *(doctors)* | Upload a CSV/XLSX of patient records, score the whole cohort, download results, review a single record |
+| **Clinical Dashboard** *(doctors)* | Review CSV/XLSX rows for missing/invalid values, derive age from DOB, correct incomplete records, score a cohort, record clinician decisions, and download CSV/PDF summaries |
 | **AI Assistant** | "Ask AHEAD" chat with suggested prompts; answers via Gemini (offline answers for the suggestions) |
-| **Settings** | Profile, Light/Dark appearance, notification & privacy preferences, account actions |
+| **Settings** | Persistent profile/password, Light/Dark appearance, English/partial Arabic patient labels, session history controls and account actions |
 
 ---
 
@@ -50,6 +50,10 @@ SDP-Project-AHEAD/
 ├── ahead/
 │   ├── config.py           ← disease registry, form layout, labels, navigation, demo accounts
 │   ├── resources.py        ← cached models / metadata / datasets / images / Gemini client
+│   ├── clinical_data.py    ← row-by-row upload validation and DOB calculation
+│   ├── storage.py          ← local SQLite accounts and doctor review queue
+│   ├── reports.py          ← downloadable individual screening PDFs
+│   ├── i18n.py             ← patient-facing Arabic labels
 │   ├── theme.py            ← colour tokens (light & dark), global CSS, Plotly styling
 │   ├── components.py       ← shared UI pieces + session-state helpers
 │   ├── screening.py        ← the guided screening flow (form → prediction → guidance)
@@ -86,6 +90,8 @@ pip install -r requirements.txt
 
 Python 3.11 is recommended.
 
+Set `AHEAD_DB_PATH` to a protected durable volume to retain accounts and doctor review records across app restarts. By default the SQLite database is `ahead.sqlite3` in the project folder. Streamlit Cloud's local files may be lost on restart; use a persistent volume or a database service before relying on saved records. Keep the database private and use fictional or de-identified patient data for demonstrations.
+
 ---
 
 ## Running the app
@@ -94,7 +100,7 @@ Python 3.11 is recommended.
 streamlit run app.py
 ```
 
-Open the printed URL (usually `http://localhost:8501`).
+Open the printed URL (usually `http://localhost:8501`). Create a patient account on the sign-in page. To provision the first doctor account, set `AHEAD_DOCTOR_EMAIL` and a strong `AHEAD_DOCTOR_PASSWORD` (12+ characters) before the first run.
 
 ---
 
@@ -105,8 +111,11 @@ Open the printed URL (usually `http://localhost:8501`).
 | Patient | `user@ahead.demo` | `user123` |
 | Doctor / Admin | `doctor@ahead.demo` | `doctor123` |
 
-Doctor accounts additionally see the **Clinical Dashboard**. Accounts are defined in
-`ahead/config.py` (`DEMO_ACCOUNTS`) — this is a prototype, not a real authentication system.
+Demo accounts are disabled by default. Set `AHEAD_ENABLE_DEMO_ACCOUNTS=1` **only** for a classroom demo; never upload identifiable patient records when demo credentials are enabled. Accounts use salted password hashes and are stored in the local SQLite database. Doctor accounts see the Clinical Dashboard and records are scoped to their own account. This is a research prototype, not a production authentication or health-record system.
+
+Clinical uploads require model feature columns except age. An optional `DOB`, `DateOfBirth`, `date_of_birth`, or `Date of Birth` column (YYYY-MM-DD) fills age or the heart model's age category. Missing and invalid values appear per row and are not scored until corrected. Correct a row and save it in the review queue, then score eligible records. Clinicians can mark a record reviewed or excluded and add a note. The file is limited to 5,000 rows and 15 MB. The PDF and CSV contain entered data; handle downloads appropriately.
+
+Arabic currently covers navigation, key patient-screening controls, several input labels and the result summary. Long-form guidance, doctor tools and the generated PDF remain English; full translation and right-to-left layout are future work. No email, text or push notifications are sent. The map-search link does not show live appointment availability.
 
 ---
 
