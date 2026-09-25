@@ -102,7 +102,7 @@ def current_user() -> dict:
     }
 
 
-def record_screening(disease: str, model_name: str, probability: float, prediction: int, threshold: float = 0.5) -> None:
+def record_screening(disease: str, model_name: str, probability: float, prediction: int, threshold: float = 0.5, values=None) -> None:
     """Append a completed screening to the session history (if the user allows it)."""
     if not pref("keep_history"):
         return
@@ -119,7 +119,9 @@ def record_screening(disease: str, model_name: str, probability: float, predicti
     )
     owner = (st.session_state.get("user") or {}).get("id")
     if owner:
-        save_screening(owner, disease, model_name, probability, prediction, threshold)
+        save_screening(owner, disease, model_name, probability, prediction, threshold, values)
+        from ahead.platform_data import event
+        event(owner,'assessment_completed')
 
 
 # =============================================================================

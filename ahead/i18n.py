@@ -38,6 +38,40 @@ AR = {
     "Find a nearby clinic (map search)": "البحث عن عيادة قريبة على الخريطة",
 }
 
+AR.update({
+    'Health & Lifestyle Tracker':'متابعة الصحة ونمط الحياة','Food Nutrition Analyzer':'تحليل الطعام',
+    'Medication Monitoring':'متابعة الأدوية','Notifications':'الإشعارات','Voice Assistant':'المساعد الصوتي',
+    'Advanced Analytics & Patient Intelligence':'التحليلات المتقدمة وسجلات المرضى',
+    'Check-in':'التقييم','Progress':'التقدم','Goals':'الأهداف','30×30 Challenge':'تحدي ٣٠×٣٠',
+    'Age':'العمر','Height (cm)':'الطول (سم)','Weight (kg)':'الوزن (كغ)',
+    'Daily steps':'الخطوات اليومية','Daily activity level':'مستوى النشاط اليومي',
+    'Exercise days per week':'أيام التمارين أسبوعياً','Minutes per exercise day':'دقائق التمرين يومياً',
+    'Hours of sleep':'ساعات النوم','Sleep quality (1–5)':'جودة النوم (١–٥)',
+    'Water (litres/day)':'الماء (لتر/يوم)','Fruit/vegetable servings per day':'حصص الفواكه والخضار يومياً',
+    'Sugary foods/drinks per week':'الأطعمة والمشروبات السكرية أسبوعياً',
+    'Fast food meals per week':'الوجبات السريعة أسبوعياً','Usually eat balanced meals':'أتناول وجبات متوازنة عادةً',
+    'Currently smoke':'أدخن حالياً','Stress (0–10)':'التوتر (٠–١٠)',
+    'Hours sitting per day':'ساعات الجلوس يومياً','Save lifestyle check-in':'حفظ تقييم نمط الحياة',
+    'Check-in saved. Your lifestyle summary is below.':'تم حفظ التقييم. ملخص نمط الحياة أدناه.',
+    'Lifestyle / Wellness Score':'درجة نمط الحياة والعافية','Practical suggestions':'اقتراحات عملية',
+    'View':'عرض','Score':'الدرجة','Weight (kg)':'الوزن (كغ)',
+    'Activity minutes':'دقائق النشاط','Sleep (h)':'النوم (ساعات)',
+    'Hydration (L)':'شرب الماء (لتر)','Nutrition':'التغذية','Activity':'النشاط',
+    'Sleep':'النوم','Hydration':'الترطيب','Habits':'العادات',
+    'Target weight (kg)':'الوزن المستهدف (كغ)','Daily step goal':'هدف الخطوات اليومية',
+    'Weekly exercise minutes':'دقائق التمرين الأسبوعية','Daily water target (L)':'هدف الماء اليومي (لتر)',
+    'Sleep target (h)':'هدف النوم (ساعات)','Fruit/vegetable servings target':'هدف حصص الفواكه والخضار',
+    'Save goals':'حفظ الأهداف','Goals saved.':'تم حفظ الأهداف.',
+    'Activity date':'تاريخ النشاط','Save activity':'حفظ النشاط',
+    'Upload or take a food photo':'ارفع أو التقط صورة للطعام','Analyze Food':'حلّل الطعام',
+    'Foods (comma separated)':'الأطعمة (مفصولة بفواصل)','Portion description':'وصف الحصة',
+    'Calories':'السعرات','Protein':'البروتين','Carbs':'الكربوهيدرات','Fat':'الدهون',
+    'Sugar':'السكر','Fiber':'الألياف','Sodium':'الصوديوم',
+    'Confirm and save meal':'تأكيد الوجبة وحفظها','Meal history':'سجل الوجبات',
+    'Today':'اليوم','Plans':'الخطط','Adherence history':'سجل الالتزام',
+    'Taken':'تم تناوله','Skipped':'تم تخطيه','Mark as read':'وضع علامة كمقروء','Open':'فتح',
+})
+
 AR_STEPS = {
     "diabetes": {
         1: [("راجع الطبيب", "ناقش النتيجة والأعراض والفحوصات السابقة مع طبيب الرعاية الأولية."),

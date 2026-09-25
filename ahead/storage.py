@@ -72,6 +72,12 @@ def init_db():
         """)
         if "preferences_json" not in {row["name"] for row in db.execute("PRAGMA table_info(users)")}:
             db.execute("ALTER TABLE users ADD COLUMN preferences_json TEXT NOT NULL DEFAULT '{}'")
+        screening_columns = {row["name"] for row in db.execute("PRAGMA table_info(screenings)")}
+        for column, definition in (("values_json", "TEXT NOT NULL DEFAULT '{}'"),
+                                   ("source", "TEXT NOT NULL DEFAULT 'legacy'"),
+                                   ("previous_id", "INTEGER")):
+            if column not in screening_columns:
+                db.execute(f"ALTER TABLE screenings ADD COLUMN {column} {definition}")
     # Demo accounts are explicitly enabled for classroom use only.
     if os.environ.get("AHEAD_ENABLE_DEMO_ACCOUNTS") == "1":
         create_user("user@ahead.demo", "user123", ROLE_PATIENT, "Sarah Ahmed", demo=True)
@@ -163,20 +169,23 @@ def update_record(owner_id, record_id, **fields):
 
 def delete_records(owner_id):
     with connection() as db:
+        db.execute("DELETE FROM record_predictions WHERE owner_id=?", (owner_id,))
         db.execute("DELETE FROM records WHERE owner_id=?", (owner_id,))
 
 
-def save_screening(owner_id, disease, model, score, prediction, threshold):
+def save_screening(owner_id, disease, model, score, prediction, threshold, values=None, source="patient", previous_id=None):
     with connection() as db:
-        db.execute("""INSERT INTO screenings(owner_id,disease,model,score,prediction,threshold,created_at)
-                      VALUES(?,?,?,?,?,?,?)""",
-                   (owner_id, disease, model, score, prediction, threshold, datetime.now(timezone.utc).isoformat()))
+        cursor = db.execute("""INSERT INTO screenings(owner_id,disease,model,score,prediction,threshold,created_at,values_json,source,previous_id)
+                               VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                            (owner_id, disease, model, score, prediction, threshold,
+                             datetime.now(timezone.utc).isoformat(), json.dumps(values or {}), source, previous_id))
+        return cursor.lastrowid
 
 
 def load_screenings(owner_id):
     with connection() as db:
         return [dict(r) for r in db.execute(
-            "SELECT * FROM screenings WHERE owner_id=? ORDER BY created_at LIMIT 500", (owner_id,)).fetchall()]
+            "SELECT * FROM screenings WHERE owner_id=? ORDER BY created_at DESC,id DESC LIMIT 500", (owner_id,)).fetchall()]
 
 
 def delete_screenings(owner_id):

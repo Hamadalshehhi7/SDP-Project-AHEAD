@@ -40,6 +40,39 @@ explanation.
 | **AI Assistant** | "Ask AHEAD" chat with suggested prompts; answers via Gemini (offline answers for the suggestions) |
 | **Settings** | Persistent profile/password, Light/Dark appearance, English/partial Arabic patient labels, session history controls and account actions |
 
+### Patient wellness and linked care (experimental)
+
+The patient navigation also includes **Health & Lifestyle Tracker** (transparent five-part lifestyle score,
+dated check-ins, trends, personal goals, manual 30×30 activity log), **Food Nutrition Analyzer**
+(photo preview, optional real Gemini image estimate, mandatory manual confirmation, meal history),
+**Medication Monitoring** (doctor-assigned plans and taken/skipped/unlogged dose tracking),
+**Notifications** (in-app reminders when the website is open), and an optional browser-speech **Voice Assistant**.
+Wellness is independent of the three disease models. Numeric wellness rules are educational heuristics, not
+validated clinical scales. A food photo is never analyzed without a configured Gemini key; manual entry
+remains available. The photo is sent to Google's model only when the user presses Analyze Food and is not
+stored by AHEAD. Nutrition estimates must be checked and confirmed by the patient. Voice speech recognition
+depends on browser support and is limited to short read-only answers; page buttons provide reliable navigation.
+
+Patients explicitly add a doctor's account email under **Settings → Preferences → Care team** to grant
+that doctor access to their account records; they can revoke access there. A separate unchecked permission
+allows that doctor to send selected linked records to Gemini for an optional AI pre-consultation draft.
+The draft must be verified against the source records. The doctor-only **Advanced
+Analytics & Patient Intelligence** area reports only linked patients, their dated saved assessments,
+medication adherence, and record-based summaries. Doctors create/edit/pause/resume/stop medication plans;
+patients can only log their own scheduled doses. The original **Clinical Dashboard** handles imported
+de-identified files separately. Imported rows are not automatically merged with registered patient accounts.
+The default record-based summary and data-quality checklist do not use generative AI. The patient voice UI
+and photo flow have explicit fallback paths and make no diagnostic or prescribing decisions.
+
+Database migration is automatic and additive on app startup: the existing `screenings` table gains input
+history columns and `ahead/platform_data.py` creates linked-care, wellness, food, medication, dose, notification,
+activity, and prediction-version tables. Make a backup of `AHEAD_DB_PATH` before upgrading an existing
+database. No manual migration command is required. `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) enables optional
+food photo analysis and the existing AI assistant/insights. The database still defaults to local SQLite;
+Streamlit Community Cloud does not provide durable application-file storage. Do not upload real patient data.
+In-app reminders are calculated when pages are visited; there are no background jobs, push, SMS, or email.
+Times in medication scheduling use `Asia/Dubai`; historical timestamps are stored in UTC.
+
 ---
 
 ## Project structure

@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from datetime import datetime
 
 import pandas as pd
 import streamlit as st
@@ -13,6 +14,7 @@ from ahead.reports import patient_report
 from ahead.resources import feature_summary, features, final_metrics, predict_probability, validation_results, best_model
 from ahead.storage import insert_records, list_records, update_record
 from ahead.screening import identify_risk_factors, individual_sensitivity
+from ahead.platform_data import append_record_prediction, record_prediction_history
 
 ID_COLUMNS = ["PatientID", "patient_id", "Patient ID", "ID", "id"]
 MAX_ROWS = 5000
@@ -77,7 +79,7 @@ def _intake(owner_id, disease, required, stats):
             st.rerun()
 
 
-def _edit_record(record, owner_id, disease, required, stats):
+def _edit_record(record, owner_id, disease, required, stats, pipeline, model_name, threshold):
     values = json.loads(record["values_json"])
     st.markdown(f"**Record {record['source_row']} · {record['patient_id']}**")
     st.caption("Edit model inputs below. Enter DOB to calculate age automatically.")
@@ -89,7 +91,19 @@ def _edit_record(record, owner_id, disease, required, stats):
         submitted = st.form_submit_button("Save and validate record")
     if submitted:
         incoming = dict(zip(table["Input"], table["Value"]))
-        clean, issues = validate_row(incoming, disease, required, stats, dob or None)
+        clean, issues = validate_row(incoming, disease, required, stats, dob or None,
+                                     datetime.fromisoformat(record['created_at']).date())
+        if not issues and record['score'] is not None:
+            try:
+                score = float(predict_probability(pipeline, pd.DataFrame([clean], columns=required)).iloc[0])
+            except (ValueError, TypeError) as error:
+                st.error(f'Could not update the prediction: {error}')
+                return
+            append_record_prediction(owner_id,record['id'],disease,clean,score,threshold,model_name,'corrected')
+            update_record(owner_id, record['id'], values_json=json.dumps(clean), dob=dob or None,
+                          issues_json='[]',status='Flagged' if score>=threshold else 'Ready',
+                          score=score, model=model_name,threshold=threshold)
+            st.rerun()
         update_record(owner_id, record["id"], values_json=json.dumps(clean), dob=dob or None,
                       issues_json=json.dumps(issues), status="Incomplete" if issues else "Ready",
                       score=None, model=None, threshold=None)
@@ -109,7 +123,8 @@ def _queue(owner_id, disease, pipeline, model_name, threshold, required, stats):
     if st.button(f"Score {len(ready)} eligible records with {model_name}", disabled=not ready, type="primary"):
         refreshed = []
         for record in ready:
-            clean, issues = validate_row(json.loads(record["values_json"]), disease, required, stats, record["dob"])
+            clean, issues = validate_row(json.loads(record["values_json"]), disease, required, stats, record["dob"],
+                                         datetime.fromisoformat(record['created_at']).date())
             if issues:
                 update_record(owner_id, record["id"], values_json=json.dumps(clean),
                               issues_json=json.dumps(issues), status="Incomplete", score=None, model=None, threshold=None)
@@ -126,6 +141,7 @@ def _queue(owner_id, disease, pipeline, model_name, threshold, required, stats):
             st.error(f"Scoring failed. Verify model inputs: {error}")
         else:
             for (record, _), score in zip(refreshed, scores):
+                append_record_prediction(owner_id,record['id'],disease,json.loads(record['values_json']),float(score),threshold,model_name)
                 update_record(owner_id, record["id"], score=float(score), threshold=threshold, model=model_name,
                               status="Flagged" if score >= threshold else "Ready")
             st.rerun()
@@ -157,7 +173,7 @@ def _queue(owner_id, disease, pipeline, model_name, threshold, required, stats):
     if issues:
         st.warning("Correct these inputs before screening: " + "; ".join(issues))
     if record["status"] == "Incomplete" or st.toggle("Edit this record", key=f"edit_toggle_{selected_id}"):
-        _edit_record(record, owner_id, disease, required, stats)
+        _edit_record(record, owner_id, disease, required, stats, pipeline, model_name, threshold)
     values = json.loads(record["values_json"])
     if record["score"] is not None:
         result_card(int(record["score"] >= record["threshold"]), record["score"],
@@ -187,6 +203,11 @@ def _queue(owner_id, disease, pipeline, model_name, threshold, required, stats):
     st.dataframe(pd.DataFrame({"Input": [pretty_label(f) for f in required],
                                "Value": [str(values.get(f) if values.get(f) is not None else "") for f in required]}),
                  hide_index=True, width="stretch")
+    prediction_history=record_prediction_history(owner_id,selected_id)
+    if prediction_history:
+        with st.expander('Previous prediction versions'):
+            st.dataframe(pd.DataFrame([{'Date':r['created_at'][:19],'Score (%)':round(r['score']*100,1),
+                'Model':r['model'],'Reason':r['source']} for r in prediction_history]),hide_index=True)
     with st.form(f"review_{selected_id}"):
         note = st.text_area("Doctor review note", value=record["note"], max_chars=2000)
         choices = list(dict.fromkeys([record["status"], "Reviewed", "Excluded"]))

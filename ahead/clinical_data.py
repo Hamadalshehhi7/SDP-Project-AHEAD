@@ -3,6 +3,7 @@
 import math
 import re
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -13,7 +14,7 @@ def age_from_dob(value, today=None):
     if value is None or str(value).strip() == "":
         return None
     day = date.fromisoformat(str(value)[:10])
-    today = today or date.today()
+    today = today or datetime.now(ZoneInfo('Asia/Dubai')).date()
     years = today.year - day.year - ((today.month, today.day) < (day.month, day.day))
     if not 0 <= years <= 120:
         raise ValueError("Date of birth must describe an age from 0 to 120.")
@@ -30,14 +31,23 @@ def age_category(age, choices):
     raise ValueError("Date of birth does not match the model's age categories.")
 
 
-def validate_row(values, disease, required, stats, dob=None):
+def validate_row(values, disease, required, stats, dob=None, reference_date=None):
     """Return normalized model inputs and actionable issues; never silently score an invalid row."""
     clean, issues = {}, []
     age_key = "AgeCategory" if disease == "heart" else "Age" if disease == "kidney" else "age"
     try:
-        age = age_from_dob(dob)
+        age = age_from_dob(dob, reference_date)
         if age is not None:
-            values[age_key] = age_category(age, stats[age_key]["options"]) if disease == "heart" else age
+            derived = age_category(age, stats[age_key]["options"]) if disease == "heart" else age
+            supplied = values.get(age_key)
+            if supplied is not None and not pd.isna(supplied) and str(supplied).strip():
+                try:
+                    consistent = str(supplied).strip().lower() == str(derived).strip().lower() if disease == 'heart' else int(float(supplied)) == age
+                except (ValueError, TypeError):
+                    consistent = False
+                if not consistent:
+                    issues.append(f'{age_key}: entered age conflicts with DOB; verify both.')
+            values[age_key] = derived
     except (ValueError, TypeError):
         issues.append("Invalid date of birth; use YYYY-MM-DD.")
     for feature in required:
@@ -75,7 +85,7 @@ def validate_row(values, disease, required, stats, dob=None):
     return clean, issues
 
 
-def prepare_upload(frame, disease, required, stats, id_columns):
+def prepare_upload(frame, disease, required, stats, id_columns, reference_date=None):
     """Read rows without requiring age at upload; all other model columns must exist."""
     age_key = "AgeCategory" if disease == "heart" else "Age" if disease == "kidney" else "age"
     absent = [f for f in required if f not in frame.columns and f != age_key]
@@ -89,7 +99,7 @@ def prepare_upload(frame, disease, required, stats, id_columns):
         dob = None if dob is None or pd.isna(dob) else str(dob)[:10]
         values = {f: row[f] if f in frame.columns else None for f in required}
         values = {f: (None if pd.isna(v) else v.item() if hasattr(v, "item") else v) for f, v in values.items()}
-        clean, issues = validate_row(values, disease, required, stats, dob)
+        clean, issues = validate_row(values, disease, required, stats, dob, reference_date)
         patient = str(row[id_column]) if id_column and pd.notna(row[id_column]) else f"Row {index}"
         output.append({"patient_id": patient[:100], "values": clean, "dob": dob, "issues": issues})
     return output

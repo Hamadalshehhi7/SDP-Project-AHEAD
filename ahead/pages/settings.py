@@ -13,6 +13,7 @@ from ahead.components import current_user, logout, pref
 from ahead.theme import APPEARANCE_OPTIONS, appearance_mode
 from ahead.storage import change_password, delete_records, delete_screenings, update_profile, update_preferences
 from ahead.i18n import tr
+from ahead.platform_data import doctors_for, grant_doctor, revoke_doctor, ai_consent
 
 
 def _row(icon: str, title: str, copy: str) -> str:
@@ -151,6 +152,20 @@ def _preferences_tab() -> None:
     _panel("Language", "Choose the language for patient screening and navigation. Doctor tools and exported PDF remain in English.")
     st.selectbox("Application language / لغة التطبيق", ["English", "العربية"],
                  key="pref_language", on_change=_save_prefs)
+    user=st.session_state.get('user') or {}
+    if user.get('role')=='Patient':
+        _panel('Care team access','You decide which doctor accounts may view your saved history and assign medication. You can revoke access at any time.')
+        with st.form('grant_doctor'):
+            address=st.text_input('Doctor account email')
+            if st.form_submit_button('Add doctor'):
+                if grant_doctor(user['id'],address):st.success('Doctor linked.');st.rerun()
+                else:st.error('No doctor account found with this email.')
+        for doctor in doctors_for(user['id']):
+            st.write(f"{doctor['name']} · {doctor['email']}")
+            st.checkbox('Allow sending my linked records to Gemini for optional AI summaries',value=bool(doctor['ai_allowed']),
+                 key=f"ai_consent_{doctor['id']}",on_change=lambda did=doctor['id']:ai_consent(user['id'],did,st.session_state[f'ai_consent_{did}']))
+            if st.button('Remove access',key=f"revoke_{doctor['id']}"):
+                revoke_doctor(user['id'],doctor['id']);st.rerun()
     if user := st.session_state.get("user"):
         if user["role"] == "Doctor" and st.button("Delete my saved clinical records", type="secondary"):
             delete_records(user["id"])

@@ -438,7 +438,7 @@ def render_predictor(disease: str) -> bool:
             "model": selected_name, "threshold": threshold,
         }
         st.session_state.last_results[disease] = result
-        record_screening(disease, selected_name, probability, prediction, threshold)
+        record_screening(disease, selected_name, probability, prediction, threshold, values)
     elif disease in st.session_state.last_results:
         result = st.session_state.last_results[disease]
         st.info("Showing your most recent result for this screening. Submit the form again to update it.")

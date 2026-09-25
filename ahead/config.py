@@ -181,8 +181,14 @@ NAV_ITEMS = [
     # key,        label,               icon file,       doctor-only
     ("overview",  "Overview",          "home.svg",      False),
     ("screenings", "Screenings",       "screenings.svg", False),
+    ("wellness", "Health & Lifestyle Tracker", "analytics.svg", False),
+    ("food", "Food Nutrition Analyzer", "screenings.svg", False),
+    ("medications", "Medication Monitoring", "clinical.svg", False),
+    ("notifications", "Notifications", "settings.svg", False),
+    ("voice", "Voice Assistant", "assistant.svg", False),
     ("analytics", "Data & Analytics",  "analytics.svg", False),
     ("clinical",  "Clinical Dashboard", "clinical.svg", True),
+    ("intelligence", "Advanced Analytics & Patient Intelligence", "analytics.svg", True),
     ("assistant", "AI Assistant",      "assistant.svg", False),
     ("settings",  "Settings",          "settings.svg",  False),
 ]

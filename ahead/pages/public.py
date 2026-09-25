@@ -15,6 +15,7 @@ from ahead.resources import icon_uri, static_url
 from ahead.storage import authenticate, create_user, load_screenings
 from ahead.config import DISEASES
 from datetime import datetime
+from ahead.platform_data import event
 
 
 @st.cache_data(show_spinner=False)
@@ -74,6 +75,8 @@ def _sign_in(email: str, password: str, account_type: str) -> str | None:
         return "Incorrect email, password or account type."
     st.session_state.authenticated = True
     st.session_state.user = account
+    if wanted == ROLE_PATIENT:
+        event(account['id'],'login')
     st.session_state.prefs = {**st.session_state.prefs, **account.get("preferences", {}).get("toggles", {})}
     st.session_state.pref_language = account.get("preferences", {}).get("language", "English")
     st.session_state.appearance_mode = account.get("preferences", {}).get("appearance", "Light")
